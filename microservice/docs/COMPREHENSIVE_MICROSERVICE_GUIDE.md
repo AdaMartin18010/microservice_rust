@@ -25,6 +25,7 @@
 - 🗄️ **数据存储**: SQLx、Diesel、SeaORM（见 `06_数据存储与ORM/`）
 - ☸️ **云原生**: Kubernetes、Docker、服务网格（见 `10_配置管理与部署/`、`k8s/`、`docker/`）
 - 🔐 **安全**: JWT、OAuth2、零信任架构（见 `09_安全与认证/` 与 `14_参考架构与蓝图/14.5`）
+  - SPIFFE/SPIRE 身份供应与 mTLS（见 `09_安全与认证/9.4_微服务安全最佳实践.md`）
 
 ## Rust 1.90 新特性应用
 
@@ -87,7 +88,7 @@ pub type ServiceResult<T> = impl Future<Output = Result<T, ServiceError>>;
 - **事件驱动**: 发布/订阅模式
 - **服务发现**: Consul/etcd
 
-更多：见 `04_服务发现与注册/` 与 `07_消息队列与事件驱动/`。
+更多：见 `04_服务发现与注册/` 与 `07_消息队列与事件驱动/`（特别是 `7.5_NATS_Kafka_组合范式_与_Rust_1.90_实践.md`）。
 
 ## 核心组件实现
 
@@ -333,7 +334,7 @@ scrape_configs:
 - 示例：`examples/advanced_comprehensive_demo.rs`、`examples/rust_190_enhanced_demo.rs`、`examples/performance_optimization_demo.rs`
 - 基准：`benches/` + `scripts/run_benchmarks.(ps1|sh)`
 - 一键演示与校验：`scripts/quick_demo.(ps1|sh)`、`scripts/verify_docs.(ps1|sh)`
-- 观测栈：`docker/docker-compose.observability.yml` 与 `k8s/otel-collector.yaml`
+- 观测栈：`docker/docker-compose.observability.yml` 与 `k8s/otel-collector.yaml`（参见 `OPENTELEMETRY_OBSERVABILITY_GUIDE.md` 的 Collector 管道章节）
 
 ## 总结
 

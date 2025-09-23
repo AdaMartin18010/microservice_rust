@@ -35,6 +35,12 @@
 - **错误追踪**: 错误记录、分类和统计
 - **系统状态报告**: 综合的系统状态报告
 
+### 5. Rust 1.90 语言特性与工程实践
+
+- 异步 trait：为遥测接口（计量、追踪、日志导出）提供异步能力边界；
+- GAT/TAIT：在中间件流水线里隐藏复杂返回类型（见 17.3），保持 API 简洁；
+- 更好的 `Send/Sync` 推断：`tower`/`axum` 遥测中间件栈更易组合与测试。
+
 ## 快速开始
 
 ### 0. 环境准备
@@ -67,6 +73,8 @@ let mut config = OpenTelemetryConfig {
 let mut otel_manager = OpenTelemetryManager::new(config)?;
 otel_manager.init()?;
 ```
+
+> 建议：应用内采用 Head Sampling（概率/限流），Collector 端采用 Tail-based Sampling 做高价值保留。
 
 ### 2. 日志记录
 
@@ -127,6 +135,8 @@ let prometheus_exporter = Arc::new(PrometheusExporter::new("my_service".to_strin
 otel_manager.metrics().set_exporter(prometheus_exporter);
 ```
 
+> 语义约定：遵循 OpenTelemetry Semantic Conventions 命名（http.server.duration、rpc.server.duration、db.client.duration、messaging.receive.duration 等），便于跨服务统一看板。
+
 ### 4. 分布式追踪
 
 ```rust
@@ -160,6 +170,32 @@ if let Some(context) = otel_manager.tracer().extract_context_from_headers(&heade
 // 注入上下文到 HTTP 头部
 let new_headers = otel_manager.tracer().inject_context_to_headers(&context);
 ```
+
+#### 4.1 W3C TraceContext 与 Baggage
+
+- 默认使用 `traceparent`/`tracestate`；业务维度（如 tenantId、abBucket）放入 Baggage；
+- 在 `tower::Layer` 中统一注入/提取，避免业务处理器散落粘贴：
+
+```rust
+pub struct TracePropLayer;
+impl<S> tower::Layer<S> for TracePropLayer { type Service = TracePropSvc<S>; fn layer(&self, s: S) -> Self::Service { TracePropSvc(s) } }
+pub struct TracePropSvc<S>(S);
+impl<S, Req> tower::Service<Req> for TracePropSvc<S>
+where S: tower::Service<Req>, Req: http::RequestExt + Send + 'static {
+    type Response = S::Response; type Error = S::Error; type Future = S::Future;
+    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> { self.0.poll_ready(cx) }
+    fn call(&mut self, mut req: Req) -> Self::Future {
+        // 从头部提取 TraceContext/Baggage 并写入扩展（伪代码）
+        // req.extensions_mut().insert(span_ctx);
+        self.0.call(req)
+    }
+}
+```
+
+#### 4.2 Exemplars（指标-追踪关联）
+
+- 在直方图记录时附带当前活跃 Trace Id 作为 exemplar，Grafana 能在分布图上直达具体 Trace；
+- 应用侧开启 exemplar 记录；Collector/Prometheus 保留 exemplar 样本。
 
 ### 5. 健康检查
 
@@ -370,6 +406,44 @@ let rate_limiting_sampling = SamplingStrategy::RateLimiting(100);
 // 设置采样策略
 otel_manager.tracer().set_sampling_strategy(probability_sampling);
 
+### 4. Collector 管道与导出（K8s 对应 `k8s/otel-collector.yaml`）
+
+- 接收器：`otlp`（http/grpc）+ `prometheus`；
+- 处理器：`batch`、`k8sattributes`、`tail_sampling`（可选）；
+- 导出器：`otlp`（到 Tempo/Jaeger）、`prometheusremotewrite`、`loki`（日志可选）。
+
+> 建议：应用只关心本地 SDK 配置，跨集群/跨环境路由在 Collector 完成。
+
+#### 4.x Tail-based Sampling 处理器（YAML 片段）
+
+
+```yaml
+receivers:
+  otlp:
+    protocols: { http: {}, grpc: {} }
+processors:
+  batch: {}
+  tailsampling:
+    decision_wait: 30s
+    num_traces: 50000
+    policies:
+      - name: errors-first
+        type: status_code
+        status_code:
+          status_codes: [ ERROR ]
+      - name: high-latency
+        type: latency
+        latency: { threshold_ms: 300 }
+exporters:
+  otlp: { endpoint: tempo:4317, tls: { insecure: true } }
+service:
+  pipelines:
+    traces:
+      receivers: [ otlp ]
+      processors: [ batch, tailsampling ]
+      exporters: [ otlp ]
+```
+
 ## 与示例/脚本联动
 
 - 示例：查看 `examples/` 中与观测相关的示例（如综合示例与性能示例）
@@ -377,12 +451,13 @@ otel_manager.tracer().set_sampling_strategy(probability_sampling);
 - Docker：`docker/docker-compose.observability.yml` 启动 Jaeger/Prometheus/Grafana
 - K8s：`k8s/otel-collector.yaml` 以 Collector 方式集中接入
 
+> 进阶：为 `Deployment` 注入资源标签（service.name、service.version、deployment.environment），可以在 Collector 加 `k8sattributes` 自动注入。
+
 ## 故障排查清单（Ops Ready）
 
 - 追踪无数据：检查 `jaeger_endpoint` 与网络连通，确认采样率非 0
 - 指标无暴露：确认 Prometheus Exporter 端口已暴露，或 Collector 拉取正常
 - 日志无落盘：检查本地日志集成开关与目录权限（见 `LOCAL_LOGGING_IMPLEMENTATION_SUMMARY.md`）
-```
 
 ## 最佳实践
 
@@ -392,6 +467,7 @@ otel_manager.tracer().set_sampling_strategy(probability_sampling);
 - 合理设置采样率以平衡性能和可观测性
 - 定期清理旧的追踪和指标数据
 - 使用缓冲区批量处理指标数据
+- 在 Collector 侧进行 tail-sampling，应用只做 head-sampling 以降低开销
 
 ### 2. 错误处理
 
@@ -406,6 +482,7 @@ otel_manager.tracer().set_sampling_strategy(probability_sampling);
 - 监控关键业务指标
 - 建立健康检查机制
 - 定期生成系统状态报告
+- 建立 SLO 基线（见 14.10），将阈值写入告警规则，告警自动联动回滚
 
 ### 4. 数据管理
 
