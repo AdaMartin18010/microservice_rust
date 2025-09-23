@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用字节跳动的Volo框架构建现代RPC微服务。
 
-use c13_microservice::prelude::Config;
+use microservice::prelude::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

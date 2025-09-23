@@ -2,7 +2,7 @@
 
 use tracing::{info, error};
 
-use c13_microservice::messaging::{
+use microservice::messaging::{
     KafkaManager, KafkaProducerConfig, Acks, Compression,
     Message, MessageHandler,
 };

@@ -1,0 +1,30 @@
+name: Docs Verify
+
+on:
+  pull_request:
+    paths:
+      - 'microservice/docs/**'
+      - 'microservice/scripts/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'microservice/docs/**'
+      - 'microservice/scripts/**'
+
+jobs:
+  linkcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run linkcheck
+        run: bash microservice/scripts/linkcheck.sh
+
+  stylecheck-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run stylecheck
+        shell: powershell
+        run: microservice/scripts/stylecheck.ps1
+
+

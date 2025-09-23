@@ -1,6 +1,6 @@
 # OpenTelemetry 可观测性功能指南
 
-本指南介绍如何使用 c13_microservice 中的 OpenTelemetry 可观测性功能，包括日志记录、指标收集、分布式追踪和系统监控。
+本指南介绍如何使用本仓库中的 OpenTelemetry 可观测性能力，包括日志记录、指标收集、分布式追踪和系统监控，并给出与 `examples/`、`docker/`、`k8s/` 的联动方式。
 
 ## 功能概述
 
@@ -36,6 +36,12 @@
 - **系统状态报告**: 综合的系统状态报告
 
 ## 快速开始
+
+### 0. 环境准备
+
+- 推荐安装：Jaeger、Prometheus、Grafana
+- 一键本地起服务：`docker/docker-compose.observability.yml`
+- K8s 采集与转发：`k8s/otel-collector.yaml`
 
 ### 1. 基本配置
 
@@ -116,7 +122,7 @@ otel_manager.metrics().increment_labeled_counter(
     1
 );
 
-// 设置 Prometheus 导出器
+// 设置 Prometheus 导出器（或通过 OTel Collector 转发）
 let prometheus_exporter = Arc::new(PrometheusExporter::new("my_service".to_string()));
 otel_manager.metrics().set_exporter(prometheus_exporter);
 ```
@@ -363,6 +369,19 @@ let rate_limiting_sampling = SamplingStrategy::RateLimiting(100);
 
 // 设置采样策略
 otel_manager.tracer().set_sampling_strategy(probability_sampling);
+
+## 与示例/脚本联动
+
+- 示例：查看 `examples/` 中与观测相关的示例（如综合示例与性能示例）
+- 脚本：`scripts/quick_demo.(ps1|sh)` 会自动初始化基本观测配置
+- Docker：`docker/docker-compose.observability.yml` 启动 Jaeger/Prometheus/Grafana
+- K8s：`k8s/otel-collector.yaml` 以 Collector 方式集中接入
+
+## 故障排查清单（Ops Ready）
+
+- 追踪无数据：检查 `jaeger_endpoint` 与网络连通，确认采样率非 0
+- 指标无暴露：确认 Prometheus Exporter 端口已暴露，或 Collector 拉取正常
+- 日志无落盘：检查本地日志集成开关与目录权限（见 `LOCAL_LOGGING_IMPLEMENTATION_SUMMARY.md`）
 ```
 
 ## 最佳实践

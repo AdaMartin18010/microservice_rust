@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
-use c13_microservice::security::{
+use microservice::security::{
     SecurityManager, SecurityConfig, SecurityRequest, InputData,
     OAuth2Config, OAuth2Provider, TlsConfig, CorsConfig, RateLimitConfig, RateLimit,
     TlsVersion,
@@ -175,10 +175,10 @@ async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(),
     };
 
     match security_manager.validate_request(&security_request).await {
-        c13_microservice::security::SecurityResult::Allowed => {
+        microservice::security::SecurityResult::Allowed => {
             println!("✅ 有效输入验证通过");
         }
-        c13_microservice::security::SecurityResult::Blocked(reasons) => {
+        microservice::security::SecurityResult::Blocked(reasons) => {
             println!("❌ 输入验证失败: {:?}", reasons);
         }
     }
@@ -204,10 +204,10 @@ async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(),
     };
 
     match security_manager.validate_request(&malicious_request).await {
-        c13_microservice::security::SecurityResult::Allowed => {
+        microservice::security::SecurityResult::Allowed => {
             println!("❌ 恶意输入验证失败");
         }
-        c13_microservice::security::SecurityResult::Blocked(reasons) => {
+        microservice::security::SecurityResult::Blocked(reasons) => {
             println!("✅ 恶意输入被正确阻止: {:?}", reasons);
         }
     }
@@ -239,10 +239,10 @@ async fn demo_cors_validation(security_manager: &SecurityManager) -> Result<(), 
     };
 
     match security_manager.validate_request(&allowed_request).await {
-        c13_microservice::security::SecurityResult::Allowed => {
+        microservice::security::SecurityResult::Allowed => {
             println!("✅ 允许的Origin验证通过");
         }
-        c13_microservice::security::SecurityResult::Blocked(reasons) => {
+        microservice::security::SecurityResult::Blocked(reasons) => {
             println!("❌ 允许的Origin验证失败: {:?}", reasons);
         }
     }
@@ -259,10 +259,10 @@ async fn demo_cors_validation(security_manager: &SecurityManager) -> Result<(), 
     };
 
     match security_manager.validate_request(&blocked_request).await {
-        c13_microservice::security::SecurityResult::Allowed => {
+        microservice::security::SecurityResult::Allowed => {
             println!("❌ 不允许的Origin验证失败");
         }
-        c13_microservice::security::SecurityResult::Blocked(reasons) => {
+        microservice::security::SecurityResult::Blocked(reasons) => {
             println!("✅ 不允许的Origin被正确阻止: {:?}", reasons);
         }
     }
@@ -298,10 +298,10 @@ async fn demo_rate_limiting(security_manager: &SecurityManager) -> Result<(), Bo
         };
 
         match security_manager.validate_request(&request).await {
-            c13_microservice::security::SecurityResult::Allowed => {
+            microservice::security::SecurityResult::Allowed => {
                 println!("✅ 请求 {} 被允许", i);
             }
-            c13_microservice::security::SecurityResult::Blocked(reasons) => {
+            microservice::security::SecurityResult::Blocked(reasons) => {
                 println!("❌ 请求 {} 被阻止: {:?}", i, reasons);
             }
         }

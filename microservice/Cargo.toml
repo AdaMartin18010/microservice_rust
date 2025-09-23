@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://github.com/rust-lang/microservice"
 keywords = ["microservice", "rust", "web", "grpc", "kubernetes", "async"]
 categories = ["web-programming", "network-programming"]
-rust-version = "1.89"
+rust-version = "1.90"
 
 # 移除工作区配置以避免冲突
 
@@ -21,8 +21,35 @@ with-diesel = ["dep:diesel"]
 with-kafka = ["dep:kafka"]
 # with-nats = ["dep:nats"]  # 暂时禁用，有依赖冲突
 grpc-generated = []
+# 最新微服务框架特性
+with-poem = ["dep:poem"]
+with-salvo = []  # 仅声明特性以消除 cfg 警告；依赖仍禁用以避免版本冲突
+with-volo = ["dep:volo"]
+with-fusen = []  # 仅声明特性，依赖暂不启用
+with-spring-rs = []  # 仅声明特性，依赖暂不启用
+# 服务网格特性
+# with-linkerd = ["dep:linkerd2-proxy"]  # 暂时禁用，依赖不存在
+# with-istio = ["dep:istio-proxy"]  # 暂时禁用，依赖不存在
+# 云原生特性
+with-kube = ["dep:kube", "dep:kube-runtime"]
+# 高性能代理特性
+# with-pingora = ["dep:pingora"]  # 暂时禁用，依赖不存在
+# GraphQL 特性
+with-graphql = ["dep:async-graphql", "dep:async-graphql-poem", "dep:async-graphql-axum"]
+# AI/ML 特性
+with-ai-ml = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:ort", "dep:tch", "dep:tokenizers"]
 # 一键启用"独立构建"所需的重依赖
 standalone = ["with-redis", "with-rabbitmq", "with-diesel", "with-kafka"]
+# 一键启用所有现代微服务框架
+modern-frameworks = ["with-poem", "with-volo"]
+# 一键启用服务网格支持
+service-mesh = ["with-kube"]  # 暂时只保留 kube 支持
+# 一键启用云原生特性
+cloud-native = ["with-kube", "modern-frameworks"]
+# 一键启用现代API特性
+modern-api = ["with-graphql", "modern-frameworks"]
+# 一键启用智能微服务特性
+intelligent-microservices = ["with-ai-ml", "with-graphql", "modern-frameworks"]
 
 [dependencies]
 # 异步运行时
@@ -34,6 +61,12 @@ futures = { workspace = true }
 axum = { workspace = true }
 actix-web = { version = "4.11.0", features = ["macros"] }
 warp = "0.4.2"
+# 最新微服务框架
+poem = { version = "2.0", features = ["server"], optional = true }
+# salvo = { version = "0.50", features = ["full"], optional = true }  # 暂时禁用，版本冲突
+volo = { version = "0.8", optional = true }
+# fusen-rs = { version = "0.1", optional = true }  # 暂时禁用，依赖不存在
+# spring-rs = { version = "0.1", optional = true }  # 暂时禁用，依赖不存在
 # tide 已移除，使用 axum 替代 (解决 stdweb 安全漏洞)
 
 # gRPC框架
@@ -78,7 +111,7 @@ kafka = { version = "0.10.0", optional = true }
 jsonwebtoken = "9.3.1"
 oauth2 = "5.0.0"
 argon2 = "0.5.3"
-uuid = { workspace = true }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 
 # 正则表达式和URL处理
 regex = "1.11.1"
@@ -96,6 +129,7 @@ tower-http = { workspace = true }
 chrono = { workspace = true }
 time = { workspace = true }
 
+
 # 压缩支持
 flate2 = "1.1.2"
 
@@ -111,6 +145,41 @@ clap = { version = "4.5.48", features = ["derive"] }
 tokio-test = { workspace = true }
 mockall = { workspace = true }
 async-trait = { workspace = true }
+
+# Rust 1.90 新特性支持
+# 异步trait现在稳定，但保留async-trait作为兼容性
+# 新的异步迭代器支持
+futures-util = { workspace = true }
+# stream = "0.1"  # 暂时禁用，可能不存在
+
+# 最新微服务工具和中间件
+# 服务网格支持
+# linkerd2-proxy = { version = "0.1", optional = true }  # 暂时禁用，依赖不存在
+# istio-proxy = { version = "0.1", optional = true }  # 暂时禁用，依赖不存在
+# 云原生工具
+kube = { version = "0.88", features = ["runtime", "derive"], optional = true }
+kube-runtime = { version = "0.88", optional = true }
+# 高性能代理
+# pingora = { version = "0.1", optional = true }  # 暂时禁用，依赖不存在
+# 现代序列化
+rmp-serde = "1.1"
+bincode = "1.3"
+# 高性能HTTP客户端
+h2 = "0.3"
+http-body = "1.0"
+
+# GraphQL 支持
+async-graphql = { version = "6.0", features = ["chrono", "uuid", "tracing"], optional = true }
+async-graphql-poem = { version = "6.0", optional = true }
+async-graphql-axum = { version = "6.0", optional = true }
+
+# AI/ML 支持
+candle-core = { version = "0.2", optional = true }
+candle-nn = { version = "0.2", optional = true }
+candle-transformers = { version = "0.2", optional = true }
+ort = { version = "1.16", features = ["load-dynamic"], optional = true }
+tch = { version = "0.13", optional = true }
+tokenizers = { version = "0.15", optional = true }
 
 env_logger = "0.11.8"
 pretty_env_logger = "0.5.0"
@@ -129,7 +198,7 @@ futures = { workspace = true }
 rand = "0.8.5"
 
 [lib]
-name = "c13_microservice"
+name = "microservice"
 path = "src/lib.rs"
 
 [[bin]]
@@ -211,3 +280,97 @@ path = "examples/service_mesh_demo.rs"
 [[example]]
 name = "performance_demo"
 path = "examples/performance_demo.rs"
+
+[[example]]
+name = "poem_demo"
+path = "examples/poem_demo.rs"
+
+[[example]]
+name = "salvo_demo"
+path = "examples/salvo_demo.rs"
+
+[[example]]
+name = "volo_demo"
+path = "examples/volo_demo.rs"
+
+[[example]]
+name = "rust_190_features_demo"
+path = "examples/rust_190_features_demo.rs"
+
+[[example]]
+name = "service_mesh_advanced_demo"
+path = "examples/service_mesh_advanced_demo.rs"
+required-features = ["service-mesh"]
+
+[[example]]
+name = "cloud_native_demo"
+path = "examples/cloud_native_demo.rs"
+
+[[example]]
+name = "graphql_demo"
+path = "examples/graphql_demo.rs"
+required-features = ["with-graphql", "with-poem"]
+
+[[example]]
+name = "ai_ml_demo"
+path = "examples/ai_ml_demo.rs"
+required-features = ["with-ai-ml"]
+
+[[example]]
+name = "advanced_rust_190_features_demo"
+path = "examples/advanced_rust_190_features_demo.rs"
+
+[[example]]
+name = "modern_frameworks_demo"
+path = "examples/modern_frameworks_demo.rs"
+required-features = ["modern-frameworks"]
+
+[[example]]
+name = "advanced_ai_ml_demo"
+path = "examples/advanced_ai_ml_demo.rs"
+required-features = ["with-ai-ml"]
+
+[[example]]
+name = "advanced_graphql_demo"
+path = "examples/advanced_graphql_demo.rs"
+required-features = ["with-graphql", "with-poem"]
+
+[[example]]
+name = "advanced_patterns_demo"
+path = "examples/advanced_patterns_demo.rs"
+
+[[example]]
+name = "chaos_engineering_demo"
+path = "examples/chaos_engineering_demo.rs"
+
+[[example]]
+name = "auto_scaling_demo"
+path = "examples/auto_scaling_demo.rs"
+
+[[example]]
+name = "multi_cloud_demo"
+path = "examples/multi_cloud_demo.rs"
+
+[[example]]
+name = "performance_optimization_demo"
+path = "examples/performance_optimization_demo.rs"
+
+[[example]]
+name = "simple_microservice_demo"
+path = "examples/simple_microservice_demo.rs"
+
+[[example]]
+name = "rust_190_comprehensive_demo"
+path = "examples/rust_190_comprehensive_demo.rs"
+
+[[example]]
+name = "advanced_comprehensive_demo"
+path = "examples/advanced_comprehensive_demo.rs"
+
+[[example]]
+name = "rust_190_enhanced_demo"
+path = "examples/rust_190_enhanced_demo.rs"
+
+[[example]]
+name = "advanced_architecture_demo"
+path = "examples/advanced_architecture_demo.rs"

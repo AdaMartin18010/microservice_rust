@@ -4,7 +4,7 @@
 
 use std::time::{Duration, Instant};
 use std::thread;
-use c13_microservice::performance::{
+use microservice::performance::{
     PerformanceMonitor, PerformanceConfig, PerformanceBenchmark, PerformanceTestSuite,
     TestSuiteConfig, OutputFormat,
 };
@@ -49,10 +49,10 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
         simulate_cpu_intensive_work();
         let duration = start.elapsed();
         
-        let event = c13_microservice::performance::profiler::ProfilerEvent::new(
+        let event = microservice::performance::profiler::ProfilerEvent::new(
             format!("cpu_work_{}", i),
             "function".to_string(),
-            c13_microservice::performance::profiler::ProfilerEventType::Function,
+            microservice::performance::profiler::ProfilerEventType::Function,
         ).with_duration(duration);
         
         monitor.record_event(event)?;
@@ -65,10 +65,10 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("memory_bytes".to_string(), memory_usage.to_string());
     
-    let event = c13_microservice::performance::profiler::ProfilerEvent::new(
+    let event = microservice::performance::profiler::ProfilerEvent::new(
         "memory_usage".to_string(),
         "memory".to_string(),
-        c13_microservice::performance::profiler::ProfilerEventType::Memory,
+        microservice::performance::profiler::ProfilerEventType::Memory,
     );
     
     monitor.record_event(event)?;
@@ -85,10 +85,10 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
         metadata.insert("method".to_string(), "GET".to_string());
         metadata.insert("status_code".to_string(), "200".to_string());
         
-        let event = c13_microservice::performance::profiler::ProfilerEvent::new(
+        let event = microservice::performance::profiler::ProfilerEvent::new(
             "network_request".to_string(),
             "network".to_string(),
-            c13_microservice::performance::profiler::ProfilerEventType::Network,
+            microservice::performance::profiler::ProfilerEventType::Network,
         ).with_duration(duration);
         
         monitor.record_event(event)?;
@@ -106,10 +106,10 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
         metadata.insert("query".to_string(), format!("SELECT * FROM users WHERE id = {}", i));
         metadata.insert("rows_affected".to_string(), "1".to_string());
         
-        let event = c13_microservice::performance::profiler::ProfilerEvent::new(
+        let event = microservice::performance::profiler::ProfilerEvent::new(
             "database_query".to_string(),
             "database".to_string(),
-            c13_microservice::performance::profiler::ProfilerEventType::Database,
+            microservice::performance::profiler::ProfilerEventType::Database,
         ).with_duration(duration);
         
         monitor.record_event(event)?;

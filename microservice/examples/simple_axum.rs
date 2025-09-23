@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用简化的Axum框架构建现代REST API微服务。
 
-use c13_microservice::lib_simple::{AxumMicroservice, Config};
+use microservice::lib_simple::{AxumMicroservice, Config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

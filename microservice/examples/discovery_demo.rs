@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用Consul和etcd进行服务发现和配置管理。
 
-use c13_microservice::{
+use microservice::{
     //Config,
     discovery::{Consul, Etcd},
 };

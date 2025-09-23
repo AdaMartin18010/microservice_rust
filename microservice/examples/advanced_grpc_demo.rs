@@ -2,12 +2,12 @@
 //!
 //! 展示流式处理、批量操作、拦截器和中间件等高级功能
 #[allow(unused_imports)]
-use c13_microservice::grpc::{
+use microservice::grpc::{
     AdvancedUserService, AdvancedGrpcClient,
     BatchUserRequest, BatchUserResponse,
     UserOperation, OperationResult,
 };
-use c13_microservice::config::Config;
+use microservice::config::Config;
 use std::time::Duration;
 use tokio::time::sleep;
 

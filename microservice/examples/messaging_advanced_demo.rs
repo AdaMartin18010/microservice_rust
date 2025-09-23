@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用多种消息队列系统进行消息发布和订阅。
 
-use c13_microservice::messaging::{Message, MessageHandler, MessageQueueManager};
+use microservice::messaging::{Message, MessageHandler, MessageQueueManager};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{error, info, warn};
@@ -22,7 +22,7 @@ impl UserEvent {
             event_type,
             user_id,
             data: HashMap::new(),
-            timestamp: c13_microservice::utils::current_timestamp_secs(),
+            timestamp: microservice::utils::current_timestamp_secs(),
         }
     }
 

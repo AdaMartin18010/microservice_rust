@@ -1,8 +1,8 @@
 //! 微服务主程序
 //!
-//! 展示如何使用c13_microservice框架构建和运行微服务。
+//! 展示如何使用microservice框架构建和运行微服务。
 
-use c13_microservice::{
+use microservice::{
     actix::ActixMicroservice, axum::AxumMicroservice, grpc::GrpcMicroservice, prelude::Config,
     volo::VoloMicroservice,
 };

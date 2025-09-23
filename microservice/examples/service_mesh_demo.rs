@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 use tokio::time::sleep;
-use c13_microservice::service_mesh::{
+use microservice::service_mesh::{
     ServiceMeshManager, ServiceMeshConfig, ServiceInstance,
     DiscoveryConfig, RegistryConfig, LoadBalancerConfig, LoadBalancingStrategy,
     CircuitBreakerConfig, TrafficConfig, TrafficPolicy, RetryPolicy, TimeoutPolicy,
@@ -246,11 +246,11 @@ async fn demo_circuit_breaker(service_mesh: &mut ServiceMeshManager) -> Result<(
     // 模拟失败的调用
     println!("💥 模拟失败调用:");
     for _i in 1..=5 {
-        let result: Result<String, c13_microservice::service_mesh::ServiceMeshError> = service_mesh.call_service("user-service", |instance| {
+        let result: Result<String, microservice::service_mesh::ServiceMeshError> = service_mesh.call_service("user-service", |instance| {
             let instance_id = instance.id.clone();
             async move {
                 println!("   调用 {} (失败)", instance_id);
-                Err(c13_microservice::service_mesh::ServiceMeshError::ServiceTimeout)
+                Err(microservice::service_mesh::ServiceMeshError::ServiceTimeout)
             }
         }).await;
 
@@ -313,7 +313,7 @@ async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Resul
             Box::pin(async move {
                 if attempt == 1 {
                     println!("   尝试 1: 模拟失败");
-                    Err(c13_microservice::service_mesh::traffic_management::TrafficError::Timeout)
+                    Err(microservice::service_mesh::traffic_management::TrafficError::Timeout)
                 } else {
                     println!("   尝试 {}: 成功", attempt);
                     Ok(format!("成功响应 {}", attempt))

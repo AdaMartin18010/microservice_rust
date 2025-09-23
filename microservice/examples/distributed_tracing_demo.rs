@@ -8,7 +8,7 @@ use tokio::time::sleep;
 use tracing::{info, error};
 use uuid::Uuid;
 
-use c13_microservice::{
+use microservice::{
     middleware::{
         DistributedTracingMiddleware, DistributedTracingConfig, TracingLogLevel,
         TraceContextBuilder,

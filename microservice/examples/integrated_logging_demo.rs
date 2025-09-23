@@ -7,7 +7,7 @@
 //! - 错误追踪与本地日志存储
 //! - 分布式追踪与本地日志关联
 
-use c13_microservice::opentelemetry::{
+use microservice::opentelemetry::{
     CompressionStrategy, DatabaseHealthChecker, ErrorSeverity, HealthStatus, LocalLogConfig,
     LocalLogLevel, LogFormat, OpenTelemetryConfig, OpenTelemetryManager, RedisHealthChecker,
     RotationStrategy, SystemResourceHealthChecker,

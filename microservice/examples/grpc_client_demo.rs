@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用gRPC客户端与服务进行通信。
 
-use c13_microservice::grpc::GrpcClient;
+use microservice::grpc::GrpcClient;
 use tracing::{error, info};
 
 #[tokio::main]

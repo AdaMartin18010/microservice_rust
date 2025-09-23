@@ -53,36 +53,32 @@ Write-Host ""
 Write-Host "🌟 核心功能特性:" -ForegroundColor Cyan
 Write-Host "✅ 多种Web框架支持 (Axum, Actix-Web, Warp, Tide)" -ForegroundColor Green
 Write-Host "✅ 完整的gRPC实现 (Tonic + Protocol Buffers)" -ForegroundColor Green
-Write-Host "✅ 消息队列支持 (Redis, RabbitMQ)" -ForegroundColor Green
+Write-Host "✅ 消息队列支持 (Redis, RabbitMQ, Kafka, NATS)" -ForegroundColor Green
+Write-Host "✅ 可观测性 (OpenTelemetry/Prometheus/Jaeger/Grafana)" -ForegroundColor Green
 Write-Host "✅ 丰富的中间件 (请求ID, 日志, 限流, 健康检查)" -ForegroundColor Green
 Write-Host "✅ 性能基准测试 (Criterion框架)" -ForegroundColor Green
 Write-Host "✅ 条件编译支持 (通过features控制依赖)" -ForegroundColor Green
 Write-Host "✅ 完整的错误处理" -ForegroundColor Green
 Write-Host "✅ 详细的文档和示例" -ForegroundColor Green
 
-# 显示使用示例
+# 一键演示入口（非交互，用户可复制执行）
 Write-Host ""
-Write-Host "💡 快速使用示例:" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "# 启动Axum Web服务" -ForegroundColor White
-Write-Host "cargo run --bin microservice-server -- axum" -ForegroundColor Gray
-Write-Host ""
-Write-Host "# 启动gRPC服务" -ForegroundColor White
-Write-Host "cargo run --bin microservice-server -- grpc" -ForegroundColor Gray
-Write-Host ""
-Write-Host "# 运行消息队列示例" -ForegroundColor White
-Write-Host "cargo run --example messaging_demo" -ForegroundColor Gray
-Write-Host ""
-Write-Host "# 运行性能基准测试" -ForegroundColor White
-Write-Host "cargo bench" -ForegroundColor Gray
+Write-Host "💡 一键演示入口（复制执行以下命令）:" -ForegroundColor Cyan
+Write-Host "# 1) HTTP: 启动 Axum REST API (参见 docs/14.1)" -ForegroundColor White
+Write-Host "cargo run --example axum_rest_api" -ForegroundColor Gray
+Write-Host "# 2) gRPC: 启动 Tonic 服务 与 客户端 (参见 docs/14.2)" -ForegroundColor White
+Write-Host "cargo run --example grpc_service ; cargo run --example grpc_client_demo" -ForegroundColor Gray
+Write-Host "# 3) 消息: Kafka/NATS 示例生产与消费 (参见 docs/14.3/14.4)" -ForegroundColor White
+Write-Host "cargo run --example messaging_demo ; cargo run --example messaging_advanced_demo" -ForegroundColor Gray
+Write-Host "# 4) 观测: 独立可观测性演示 (参见 docs/08.1)" -ForegroundColor White
+Write-Host "cargo run --example standalone_observability_demo" -ForegroundColor Gray
 
-# 显示配置信息
+# 环境与配置提示
 Write-Host ""
 Write-Host "⚙️  配置说明:" -ForegroundColor Cyan
-Write-Host "• 环境变量: SERVICE_NAME, SERVICE_PORT, DATABASE_URL等" -ForegroundColor White
-Write-Host "• 配置文件: config.toml" -ForegroundColor White
-Write-Host "• Features: with-redis, with-rabbitmq, with-sqlx, with-diesel" -ForegroundColor White
-Write-Host "• 独立构建: cargo build --features standalone" -ForegroundColor White
+Write-Host "• 环境变量: SERVICE_NAME, SERVICE_PORT, DATABASE_URL, OTEL_EXPORTER_OTLP_ENDPOINT 等" -ForegroundColor White
+Write-Host "• 配置文件: config.toml；或通过 Helm/Operator 部署 OTel Collector (docs/08.1)" -ForegroundColor White
+Write-Host "• K8s/Traefik/Istio 模板: 参见 docs/14.x 最小配置模板" -ForegroundColor White
 
 Write-Host ""
 Write-Host "🎉 演示完成！" -ForegroundColor Green

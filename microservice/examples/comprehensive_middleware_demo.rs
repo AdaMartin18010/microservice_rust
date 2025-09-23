@@ -11,7 +11,7 @@ use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
-use c13_microservice::{
+use microservice::{
     middleware::{
         JwtAuthMiddleware, JwtConfig, JwtAuthManager, Claims, JwtUser,
         RequestValidationMiddleware, ValidationConfig, ValidationRequest,
@@ -121,7 +121,7 @@ impl DemoServer {
 
         // 验证JWT令牌
         match self.jwt_middleware.authenticate_request("/api/protected", Some(&token)).await {
-            c13_microservice::middleware::AuthResult::Authenticated(claims) => {
+            microservice::middleware::AuthResult::Authenticated(claims) => {
                 info!("JWT验证成功:");
                 info!("  用户ID: {}", claims.sub);
                 info!(
@@ -137,16 +137,16 @@ impl DemoServer {
                 info!("  是否有admin角色: {}", claims.has_role("admin"));
                 info!("  是否有write权限: {}", claims.has_permission("write"));
             }
-            c13_microservice::middleware::AuthResult::Skipped => {
+            microservice::middleware::AuthResult::Skipped => {
                 info!("JWT认证被跳过");
             }
-            c13_microservice::middleware::AuthResult::Unauthorized(e) => {
+            microservice::middleware::AuthResult::Unauthorized(e) => {
                 error!("JWT验证失败: {}", e);
-                return Err(c13_microservice::error::Error::Auth(e));
+                return Err(microservice::error::Error::Auth(e));
             }
-            c13_microservice::middleware::AuthResult::Forbidden(e) => {
+            microservice::middleware::AuthResult::Forbidden(e) => {
                 error!("JWT权限验证失败: {}", e);
-                return Err(c13_microservice::error::Error::Auth(e));
+                return Err(microservice::error::Error::Auth(e));
             }
         }
 
@@ -159,10 +159,10 @@ impl DemoServer {
         let expired_token = self.jwt_middleware.generate_token(&expired_claims)?;
         
         match self.jwt_middleware.authenticate_request("/api/protected", Some(&expired_token)).await {
-            c13_microservice::middleware::AuthResult::Authenticated(_) => warn!("过期令牌验证意外成功"),
-            c13_microservice::middleware::AuthResult::Unauthorized(e) => info!("过期令牌正确被拒绝: {}", e),
-            c13_microservice::middleware::AuthResult::Forbidden(e) => info!("过期令牌权限被拒绝: {}", e),
-            c13_microservice::middleware::AuthResult::Skipped => info!("认证被跳过"),
+            microservice::middleware::AuthResult::Authenticated(_) => warn!("过期令牌验证意外成功"),
+            microservice::middleware::AuthResult::Unauthorized(e) => info!("过期令牌正确被拒绝: {}", e),
+            microservice::middleware::AuthResult::Forbidden(e) => info!("过期令牌权限被拒绝: {}", e),
+            microservice::middleware::AuthResult::Skipped => info!("认证被跳过"),
         }
 
         Ok(())
@@ -292,16 +292,16 @@ impl DemoServer {
             // 检查是否需要认证
             let auth_result = self.jwt_middleware.authenticate_request(path, None).await;
             match auth_result {
-                c13_microservice::middleware::AuthResult::Authenticated(_) => {
+                microservice::middleware::AuthResult::Authenticated(_) => {
                     info!("  JWT认证成功");
                 }
-                c13_microservice::middleware::AuthResult::Skipped => {
+                microservice::middleware::AuthResult::Skipped => {
                     info!("  跳过认证");
                 }
-                c13_microservice::middleware::AuthResult::Unauthorized(e) => {
+                microservice::middleware::AuthResult::Unauthorized(e) => {
                     info!("  认证失败: {}", e);
                 }
-                c13_microservice::middleware::AuthResult::Forbidden(e) => {
+                microservice::middleware::AuthResult::Forbidden(e) => {
                     info!("  权限不足: {}", e);
                 }
             }

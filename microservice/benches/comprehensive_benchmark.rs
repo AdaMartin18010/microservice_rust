@@ -7,7 +7,7 @@ use std::hint::black_box;
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
-use c13_microservice::{
+use microservice::{
     config::Config,
     middleware::{JwtAuthMiddleware, RequestValidationMiddleware, HttpCacheMiddleware},
     security::{SecurityManager, SecurityConfig},
@@ -29,7 +29,7 @@ fn benchmark_config_creation(c: &mut Criterion) {
 fn benchmark_jwt_auth_middleware(c: &mut Criterion) {
     c.bench_function("jwt_auth_middleware_creation", |b| {
         b.iter(|| {
-            let _middleware = JwtAuthMiddleware::new(c13_microservice::middleware::JwtConfig::default());
+            let _middleware = JwtAuthMiddleware::new(microservice::middleware::JwtConfig::default());
             black_box(())
         })
     });
@@ -39,7 +39,7 @@ fn benchmark_jwt_auth_middleware(c: &mut Criterion) {
 fn benchmark_request_validation_middleware(c: &mut Criterion) {
     c.bench_function("request_validation_middleware_creation", |b| {
         b.iter(|| {
-            let _middleware = RequestValidationMiddleware::new(c13_microservice::middleware::ValidationConfig::default());
+            let _middleware = RequestValidationMiddleware::new(microservice::middleware::ValidationConfig::default());
             black_box(())
         })
     });
@@ -49,7 +49,7 @@ fn benchmark_request_validation_middleware(c: &mut Criterion) {
 fn benchmark_cache_middleware(c: &mut Criterion) {
     c.bench_function("cache_middleware_creation", |b| {
         b.iter(|| {
-            let _middleware = HttpCacheMiddleware::new(c13_microservice::middleware::CacheConfig::default());
+            let _middleware = HttpCacheMiddleware::new(microservice::middleware::CacheConfig::default());
             black_box(())
         })
     });
@@ -267,7 +267,7 @@ fn benchmark_concurrent_tasks(c: &mut Criterion) {
 fn benchmark_error_handling(c: &mut Criterion) {
     c.bench_function("error_creation", |b| {
         b.iter(|| {
-            let error = c13_microservice::error::Error::config("测试错误");
+            let error = microservice::error::Error::config("测试错误");
             black_box(error)
         })
     });
@@ -275,7 +275,7 @@ fn benchmark_error_handling(c: &mut Criterion) {
     c.bench_function("error_conversion", |b| {
         b.iter(|| {
             let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "文件未找到");
-            let converted = c13_microservice::error::Error::from(io_error);
+            let converted = microservice::error::Error::from(io_error);
             black_box(converted)
         })
     });

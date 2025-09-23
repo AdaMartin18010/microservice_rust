@@ -7,7 +7,7 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
 
-use c13_microservice::{
+use microservice::{
     axum::AxumMicroservice, config::Config, middleware::practical_middleware::MiddlewareManager,
 };
 

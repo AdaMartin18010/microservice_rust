@@ -8,7 +8,7 @@
 //! - 异步写入
 //! - 性能监控
 
-use c13_microservice::opentelemetry::{
+use microservice::opentelemetry::{
     CompressionStrategy, LocalLogConfig, LocalLogLevel, LocalLogManager, LogFormat,
     RotationStrategy,
 };

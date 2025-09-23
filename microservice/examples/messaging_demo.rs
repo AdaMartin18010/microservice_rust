@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tracing::{info, error};
 
-use c13_microservice::{
+use microservice::{
     messaging::{
         KafkaManager, KafkaProducerConfig, KafkaConsumerConfig, Acks, Compression,
         NatsManager, NatsConfig,

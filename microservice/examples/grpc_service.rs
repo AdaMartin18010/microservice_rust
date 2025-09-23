@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用Tonic框架构建高性能gRPC微服务。
 
-use c13_microservice::prelude::Config;
+use microservice::prelude::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

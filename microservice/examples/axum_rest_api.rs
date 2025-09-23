@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用Axum框架构建现代REST API微服务。
 
-use c13_microservice::{
+use microservice::{
     axum::AxumMicroservice,
     config::Config,
     //MiddlewareBuilder, CorsConfig, RateLimitConfig,

@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用实用的中间件功能
 
-use c13_microservice::{
+use microservice::{
     error::Result,
     middleware::practical_middleware::{
         ErrorHandlingMiddleware, HealthCheckMiddleware, MiddlewareManager, RateLimitMiddleware,
@@ -59,7 +59,7 @@ async fn demo_request_tracing(middleware_manager: &MiddlewareManager) -> Result<
             .await;
 
         match result {
-            c13_microservice::middleware::practical_middleware::RequestResult::Success {
+            microservice::middleware::practical_middleware::RequestResult::Success {
                 request_id: _,
                 status_code,
                 duration,
@@ -97,7 +97,7 @@ async fn demo_rate_limiting(middleware_manager: &MiddlewareManager) -> Result<()
             .await;
 
         match result {
-            c13_microservice::middleware::practical_middleware::RequestResult::Success {
+            microservice::middleware::practical_middleware::RequestResult::Success {
                 request_id: _,
                 status_code,
                 duration,
@@ -109,7 +109,7 @@ async fn demo_rate_limiting(middleware_manager: &MiddlewareManager) -> Result<()
                     duration.as_millis()
                 );
             }
-            c13_microservice::middleware::practical_middleware::RequestResult::RateLimited => {
+            microservice::middleware::practical_middleware::RequestResult::RateLimited => {
                 info!("请求 {} 被限流", i + 1);
                 break;
             }
@@ -131,7 +131,7 @@ async fn demo_rate_limiting(middleware_manager: &MiddlewareManager) -> Result<()
         .process_request("GET", "/api/test", client_id)
         .await;
     match result {
-        c13_microservice::middleware::practical_middleware::RequestResult::Success {
+        microservice::middleware::practical_middleware::RequestResult::Success {
             status_code,
             ..
         } => {
@@ -157,7 +157,7 @@ async fn demo_health_check(middleware_manager: &MiddlewareManager) -> Result<()>
             .await;
 
         match result {
-            c13_microservice::middleware::practical_middleware::RequestResult::HealthCheck(
+            microservice::middleware::practical_middleware::RequestResult::HealthCheck(
                 health_result,
             ) => {
                 info!("健康检查结果: {:?}", health_result);
@@ -224,7 +224,7 @@ async fn demo_comprehensive_usage(middleware_manager: &MiddlewareManager) -> Res
             .await;
 
         match result {
-            c13_microservice::middleware::practical_middleware::RequestResult::Success {
+            microservice::middleware::practical_middleware::RequestResult::Success {
                 request_id: _,
                 status_code,
                 duration,
@@ -237,10 +237,10 @@ async fn demo_comprehensive_usage(middleware_manager: &MiddlewareManager) -> Res
                     duration.as_millis()
                 );
             }
-            c13_microservice::middleware::practical_middleware::RequestResult::RateLimited => {
+            microservice::middleware::practical_middleware::RequestResult::RateLimited => {
                 info!("🚦 请求被限流: {} {}", method, path);
             }
-            c13_microservice::middleware::practical_middleware::RequestResult::HealthCheck(
+            microservice::middleware::practical_middleware::RequestResult::HealthCheck(
                 health_result,
             ) => {
                 info!("🏥 健康检查: {} -> {:?}", path, health_result);

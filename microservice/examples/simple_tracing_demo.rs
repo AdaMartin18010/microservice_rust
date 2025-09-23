@@ -7,7 +7,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{info, error};
 
-use c13_microservice::{
+use microservice::{
     middleware::{
         DistributedTracingMiddleware, DistributedTracingConfig, TracingLogLevel,
     },

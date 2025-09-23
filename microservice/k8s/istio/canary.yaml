@@ -1,0 +1,37 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: user-svc
+  namespace: default
+spec:
+  host: user-svc
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: user-svc
+  namespace: default
+spec:
+  hosts:
+    - user-svc
+  http:
+    - route:
+        - destination:
+            host: user-svc
+            subset: v1
+          weight: 90
+        - destination:
+            host: user-svc
+            subset: v2
+          weight: 10
+      timeout: 2s
+      retries:
+        attempts: 3
+        perTryTimeout: 1s

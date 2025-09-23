@@ -6,7 +6,7 @@ use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use tokio::runtime::Runtime;
 
-use c13_microservice::messaging::{
+use microservice::messaging::{
     Message,
     rabbitmq_impl::{RabbitMQConfig, RabbitMQMessageQueue},
     redis_impl::{RedisConfig, RedisMessageQueue},

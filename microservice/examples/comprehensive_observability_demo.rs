@@ -9,7 +9,7 @@
 //! - 错误追踪
 //! - 系统状态报告
 
-use c13_microservice::opentelemetry::{
+use microservice::opentelemetry::{
     DatabaseHealthChecker, ErrorSeverity, HealthStatus, OpenTelemetryConfig, OpenTelemetryManager,
     RedisHealthChecker, SystemResourceHealthChecker,
 };
@@ -406,7 +406,7 @@ async fn final_system_report(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use c13_microservice::opentelemetry::HealthChecker;
+    use microservice::opentelemetry::HealthChecker;
 
     #[tokio::test]
     async fn test_otel_manager_creation() {

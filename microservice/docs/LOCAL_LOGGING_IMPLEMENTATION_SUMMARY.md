@@ -214,6 +214,31 @@ otel_manager.record_database_query("SELECT * FROM users", Duration::from_millis(
 otel_manager.log_local(LocalLogLevel::Info, "自定义消息", None);
 ```
 
+### 3. 命令行运行与脚本
+
+- 直接运行示例：
+
+```bash
+cargo run --example advanced_comprehensive_demo
+cargo run --example performance_optimization_demo
+```
+
+- 一键演示与观测：
+
+```bash
+# Windows
+./scripts/quick_demo.ps1
+
+# Linux/macOS
+bash scripts/quick_demo.sh
+```
+
+- 本地观测栈（含 Jaeger/Prometheus/Grafana）：
+
+```bash
+docker compose -f docker/docker-compose.observability.yml up -d
+```
+
 ## 演示示例
 
 项目提供了两个完整的演示示例：

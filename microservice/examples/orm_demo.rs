@@ -2,7 +2,7 @@
 //!
 //! 展示如何使用SQLx、Diesel和SeaORM进行数据库操作。
 
-use c13_microservice::{
+use microservice::{
     //Config,
     lib_simple::orm::{DieselDatabase, SeaOrmDatabase, SqlxDatabase},
 };

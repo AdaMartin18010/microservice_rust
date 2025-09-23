@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use tracing::{info, warn, error};
 
-use c13_microservice::{
+use microservice::{
     middleware::{
         JwtAuthMiddleware, JwtConfig, JwtAuthManager, JwtUser,
         RequestValidationMiddleware, ValidationConfig, ValidationRequest,
@@ -98,7 +98,7 @@ impl DemoServer {
                 // 验证JWT令牌
                 let auth_result = self.jwt_middleware.authenticate_request("/api/protected", Some(&token)).await;
                 match auth_result {
-                    c13_microservice::middleware::AuthResult::Authenticated(claims) => {
+                    microservice::middleware::AuthResult::Authenticated(claims) => {
                         info!("JWT验证成功:");
                         info!("  用户ID: {}", claims.sub);
                         info!("  角色: {:?}", claims.roles);
@@ -107,13 +107,13 @@ impl DemoServer {
                         info!("  是否有admin角色: {}", claims.has_role("admin"));
                         info!("  是否有write权限: {}", claims.has_permission("write"));
                     }
-                    c13_microservice::middleware::AuthResult::Unauthorized(msg) => {
+                    microservice::middleware::AuthResult::Unauthorized(msg) => {
                         error!("JWT验证失败: {}", msg);
                     }
-                    c13_microservice::middleware::AuthResult::Forbidden(msg) => {
+                    microservice::middleware::AuthResult::Forbidden(msg) => {
                         error!("JWT权限不足: {}", msg);
                     }
-                    c13_microservice::middleware::AuthResult::Skipped => {
+                    microservice::middleware::AuthResult::Skipped => {
                         info!("JWT认证被跳过");
                     }
                 }
