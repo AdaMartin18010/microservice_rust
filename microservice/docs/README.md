@@ -85,6 +85,7 @@ bash scripts/run_benchmarks.sh # Linux/macOS
 ## 附录
 
 - 术语表：`./GLOSSARY.md`
+- 主题映射与差距清单：`./TOPIC_MAPPING_AND_GAP_ANALYSIS.md`
 - 链接校验：`../scripts/linkcheck.sh` 或 `../scripts/linkcheck.ps1`
 - 一键验证：`../scripts/verify_docs.sh` 或 `../scripts/verify_docs.ps1`
 

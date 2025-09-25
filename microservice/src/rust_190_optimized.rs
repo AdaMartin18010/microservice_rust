@@ -310,9 +310,7 @@ impl OptimizedService for OptimizedMicroService {
 
     fn get_metrics(&self) -> Pin<Box<dyn Future<Output = ServiceMetrics> + Send + '_>> {
         let metrics = self.metrics.clone();
-        Box::pin(async move {
-            metrics.read().await.clone()
-        })
+        Box::pin(async move { metrics.read().await.clone() })
     }
 
     fn health_check(&self) -> Pin<Box<dyn Future<Output = HealthStatus> + Send + '_>> {
