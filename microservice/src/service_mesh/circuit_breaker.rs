@@ -2,10 +2,10 @@
 //!
 //! 提供熔断器模式实现，用于保护服务调用
 
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 /// 熔断器
@@ -69,7 +69,7 @@ impl CircuitBreaker {
     /// 记录成功
     pub fn record_success(&self) {
         self.success_count.fetch_add(1, Ordering::Relaxed);
-        
+
         {
             let mut last_success = self.last_success_time.lock().unwrap();
             *last_success = Some(Instant::now());
@@ -95,7 +95,7 @@ impl CircuitBreaker {
     /// 记录失败
     pub fn record_failure(&self) {
         self.failure_count.fetch_add(1, Ordering::Relaxed);
-        
+
         {
             let mut last_failure = self.last_failure_time.lock().unwrap();
             *last_failure = Some(Instant::now());
@@ -138,10 +138,11 @@ impl CircuitBreaker {
 
     /// 转换到关闭状态
     fn transition_to_closed(&self) {
-        self.state.store(CircuitBreakerState::Closed as usize, Ordering::Relaxed);
+        self.state
+            .store(CircuitBreakerState::Closed as usize, Ordering::Relaxed);
         self.failure_count.store(0, Ordering::Relaxed);
         self.success_count.store(0, Ordering::Relaxed);
-        
+
         {
             let mut last_state_change = self.last_state_change.lock().unwrap();
             *last_state_change = Instant::now();
@@ -152,8 +153,9 @@ impl CircuitBreaker {
 
     /// 转换到打开状态
     fn transition_to_open(&self) {
-        self.state.store(CircuitBreakerState::Open as usize, Ordering::Relaxed);
-        
+        self.state
+            .store(CircuitBreakerState::Open as usize, Ordering::Relaxed);
+
         {
             let mut last_state_change = self.last_state_change.lock().unwrap();
             *last_state_change = Instant::now();
@@ -165,9 +167,10 @@ impl CircuitBreaker {
     /// 转换到半开状态
     #[allow(dead_code)]
     fn transition_to_half_open(&self) {
-        self.state.store(CircuitBreakerState::HalfOpen as usize, Ordering::Relaxed);
+        self.state
+            .store(CircuitBreakerState::HalfOpen as usize, Ordering::Relaxed);
         self.success_count.store(0, Ordering::Relaxed);
-        
+
         {
             let mut last_state_change = self.last_state_change.lock().unwrap();
             *last_state_change = Instant::now();
@@ -207,9 +210,9 @@ impl CircuitBreaker {
 /// 熔断器状态
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CircuitBreakerState {
-    Closed,    // 关闭状态，正常处理请求
-    Open,      // 打开状态，拒绝所有请求
-    HalfOpen,  // 半开状态，允许少量请求通过
+    Closed,   // 关闭状态，正常处理请求
+    Open,     // 打开状态，拒绝所有请求
+    HalfOpen, // 半开状态，允许少量请求通过
 }
 
 impl std::fmt::Display for CircuitBreakerState {

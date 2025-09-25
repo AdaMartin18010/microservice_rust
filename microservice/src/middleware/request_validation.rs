@@ -2,9 +2,9 @@
 //!
 //! 提供请求参数验证、数据清理和安全检查功能
 
+use regex::Regex;
 use std::collections::HashMap;
 use tracing::instrument;
-use regex::Regex;
 use url::Url;
 
 /// 验证配置
@@ -24,7 +24,7 @@ impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
             max_body_size: 10 * 1024 * 1024, // 10MB
-            max_header_size: 8 * 1024, // 8KB
+            max_header_size: 8 * 1024,       // 8KB
             max_query_params: 100,
             allowed_content_types: vec![
                 "application/json".to_string(),
@@ -96,7 +96,7 @@ impl RequestValidationMiddleware {
 
         // 添加默认安全模式
         middleware.add_default_security_patterns();
-        
+
         // 添加默认清理规则
         middleware.add_default_sanitization_rules();
 
@@ -108,7 +108,10 @@ impl RequestValidationMiddleware {
         // SQL注入模式
         self.security_patterns.push(SecurityPattern {
             name: "sql_injection".to_string(),
-            pattern: Regex::new(r"(?i)(union|select|insert|update|delete|drop|create|alter|exec|execute)").unwrap(),
+            pattern: Regex::new(
+                r"(?i)(union|select|insert|update|delete|drop|create|alter|exec|execute)",
+            )
+            .unwrap(),
             severity: SecuritySeverity::High,
             action: SecurityAction::Block,
         });
@@ -201,7 +204,10 @@ impl RequestValidationMiddleware {
 
         for rule in &self.sanitization_rules {
             if rule.enabled {
-                result = rule.pattern.replace_all(&result, &rule.replacement).to_string();
+                result = rule
+                    .pattern
+                    .replace_all(&result, &rule.replacement)
+                    .to_string();
             }
         }
 
@@ -216,6 +222,12 @@ pub struct ValidationRule {
     pub query_params: HashMap<String, ParameterRule>,
     pub headers: HashMap<String, ParameterRule>,
     pub body_schema: Option<serde_json::Value>,
+}
+
+impl Default for ValidationRule {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ValidationRule {
@@ -330,6 +342,12 @@ pub struct ValidationResult {
     pub sanitized_data: Option<SanitizedData>,
 }
 
+impl Default for ValidationResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValidationResult {
     pub fn new() -> Self {
         Self {
@@ -367,6 +385,12 @@ pub struct SanitizedData {
     pub query_params: HashMap<String, String>,
     pub headers: HashMap<String, String>,
     pub body: Option<Vec<u8>>,
+}
+
+impl Default for SanitizedData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SanitizedData {

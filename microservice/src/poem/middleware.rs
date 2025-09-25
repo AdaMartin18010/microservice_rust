@@ -1,13 +1,13 @@
 //! Poem 框架中间件模块
-//! 
+//!
 //! 提供各种常用的HTTP中间件实现
 
 use poem::{
-    middleware::{Cors, Tracing},
     Endpoint, EndpointExt, Middleware, Request, Response, Result as PoemResult,
+    middleware::{Cors, Tracing},
 };
 use std::time::Instant;
-use tracing::{info, warn, error, span, Level};
+use tracing::{Level, error, info, span, warn};
 
 /// 请求ID中间件
 pub struct RequestIdMiddleware;
@@ -30,11 +30,9 @@ impl<E: Endpoint> Endpoint for RequestIdEndpoint<E> {
 
     async fn call(&self, mut req: Request) -> PoemResult<Self::Output> {
         let request_id = uuid::Uuid::new_v4().to_string();
-        req.headers_mut().insert(
-            "X-Request-ID",
-            request_id.parse().unwrap(),
-        );
-        
+        req.headers_mut()
+            .insert("X-Request-ID", request_id.parse().unwrap());
+
         let response = self.ep.call(req).await?;
         Ok(response)
     }
@@ -63,13 +61,13 @@ impl<E: Endpoint> Endpoint for PerformanceEndpoint<E> {
         let start = Instant::now();
         let method = req.method().clone();
         let path = req.uri().path().to_string();
-        
+
         let span = span!(Level::INFO, "request", method = %method, path = %path);
         let _enter = span.enter();
-        
+
         let response = self.ep.call(req).await?;
         let duration = start.elapsed();
-        
+
         info!(
             "请求完成: {} {} - 状态: {} - 耗时: {:?}",
             method,
@@ -77,7 +75,7 @@ impl<E: Endpoint> Endpoint for PerformanceEndpoint<E> {
             response.status(),
             duration
         );
-        
+
         Ok(response)
     }
 }
@@ -127,12 +125,15 @@ impl<E: Endpoint> Endpoint for RateLimitEndpoint<E> {
             .or_else(|| req.headers().get("X-Real-IP"))
             .and_then(|h| h.to_str().ok())
             .unwrap_or("unknown");
-        
+
         // 这里应该实现真正的限流逻辑
         // 例如使用 Redis 或内存计数器
-        
-        info!("限流检查: IP = {}, 限制 = {}/{}s", client_ip, self.max_requests, self.window_seconds);
-        
+
+        info!(
+            "限流检查: IP = {}, 限制 = {}/{}s",
+            client_ip, self.max_requests, self.window_seconds
+        );
+
         self.ep.call(req).await
     }
 }
@@ -170,7 +171,7 @@ impl<E: Endpoint> Endpoint for AuthEndpoint<E> {
 
     async fn call(&self, req: Request) -> PoemResult<Self::Output> {
         let auth_header = req.headers().get("Authorization");
-        
+
         match auth_header {
             Some(header) => {
                 if let Ok(token) = header.to_str() {
@@ -184,11 +185,9 @@ impl<E: Endpoint> Endpoint for AuthEndpoint<E> {
             }
             None => {}
         }
-        
+
         warn!("认证失败: 缺少有效的Authorization头");
-        Ok(Response::builder()
-            .status(401)
-            .body("Unauthorized"))
+        Ok(Response::builder().status(401).body("Unauthorized"))
     }
 }
 
@@ -225,21 +224,23 @@ impl<E: Endpoint> Endpoint for CacheEndpoint<E> {
 
     async fn call(&self, req: Request) -> PoemResult<Self::Output> {
         let cache_key = format!("{}:{}", req.method(), req.uri().path());
-        
+
         // 这里应该实现真正的缓存逻辑
         // 例如使用 Redis 或内存缓存
-        
+
         info!("缓存检查: key = {}, TTL = {}s", cache_key, self.ttl_seconds);
-        
+
         let response = self.ep.call(req).await?;
-        
+
         // 设置缓存头
         let mut response = response;
         response.headers_mut().insert(
             "Cache-Control",
-            format!("public, max-age={}", self.ttl_seconds).parse().unwrap(),
+            format!("public, max-age={}", self.ttl_seconds)
+                .parse()
+                .unwrap(),
         );
-        
+
         Ok(response)
     }
 }
@@ -265,9 +266,9 @@ impl<E: Endpoint> Endpoint for CompressionEndpoint<E> {
 
     async fn call(&self, req: Request) -> PoemResult<Self::Output> {
         let accept_encoding = req.headers().get("Accept-Encoding");
-        
+
         let response = self.ep.call(req).await?;
-        
+
         // 检查客户端是否支持压缩
         if let Some(encoding) = accept_encoding {
             if let Ok(encoding_str) = encoding.to_str() {
@@ -277,7 +278,7 @@ impl<E: Endpoint> Endpoint for CompressionEndpoint<E> {
                 }
             }
         }
-        
+
         Ok(response)
     }
 }
@@ -304,25 +305,22 @@ impl<E: Endpoint> Endpoint for SecurityHeadersEndpoint<E> {
     async fn call(&self, req: Request) -> PoemResult<Self::Output> {
         let response = self.ep.call(req).await?;
         let mut response = response;
-        
+
         // 添加安全头
-        response.headers_mut().insert(
-            "X-Content-Type-Options",
-            "nosniff".parse().unwrap(),
-        );
-        response.headers_mut().insert(
-            "X-Frame-Options",
-            "DENY".parse().unwrap(),
-        );
-        response.headers_mut().insert(
-            "X-XSS-Protection",
-            "1; mode=block".parse().unwrap(),
-        );
+        response
+            .headers_mut()
+            .insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+        response
+            .headers_mut()
+            .insert("X-Frame-Options", "DENY".parse().unwrap());
+        response
+            .headers_mut()
+            .insert("X-XSS-Protection", "1; mode=block".parse().unwrap());
         response.headers_mut().insert(
             "Strict-Transport-Security",
             "max-age=31536000; includeSubDomains".parse().unwrap(),
         );
-        
+
         Ok(response)
     }
 }
@@ -370,5 +368,9 @@ pub fn create_middleware_stack() -> impl Middleware<()> {
         .around(PerformanceMiddleware)
         .around(RequestIdMiddleware)
         .around(Tracing)
-        .around(Cors::new().allow_origin("*").allow_methods(vec!["GET", "POST", "PUT", "DELETE"]))
+        .around(
+            Cors::new()
+                .allow_origin("*")
+                .allow_methods(vec!["GET", "POST", "PUT", "DELETE"]),
+        )
 }

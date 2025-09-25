@@ -2,9 +2,9 @@
 //!
 //! 提供TLS证书管理和HTTPS支持
 
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// TLS配置
@@ -100,16 +100,17 @@ impl TlsManager {
 
     /// 加载证书信息
     fn load_certificate_info(config: &TlsConfig) -> Option<CertificateInfo> {
-        if let (Some(cert_path), Some(key_path)) = (&config.cert_path, &config.key_path) {
-            if Path::new(cert_path).exists() && Path::new(key_path).exists() {
-                return Some(CertificateInfo {
-                    cert_path: cert_path.clone(),
-                    key_path: key_path.clone(),
-                    ca_cert_path: config.ca_cert_path.clone(),
-                    loaded_at: SystemTime::now(),
-                    valid_until: None, // 实际应用中应该从证书中解析
-                });
-            }
+        if let (Some(cert_path), Some(key_path)) = (&config.cert_path, &config.key_path)
+            && Path::new(cert_path).exists()
+            && Path::new(key_path).exists()
+        {
+            return Some(CertificateInfo {
+                cert_path: cert_path.clone(),
+                key_path: key_path.clone(),
+                ca_cert_path: config.ca_cert_path.clone(),
+                loaded_at: SystemTime::now(),
+                valid_until: None, // 实际应用中应该从证书中解析
+            });
         }
         None
     }
@@ -162,7 +163,12 @@ impl TlsManager {
             client_info,
             created_at: SystemTime::now(),
             last_accessed: SystemTime::now(),
-            cipher_suite: self.config.cipher_suites.first().cloned().unwrap_or_default(),
+            cipher_suite: self
+                .config
+                .cipher_suites
+                .first()
+                .cloned()
+                .unwrap_or_default(),
             tls_version: self.config.min_tls_version,
             is_active: true,
         };
@@ -185,9 +191,11 @@ impl TlsManager {
     pub fn cleanup_expired_sessions(&mut self) {
         let now = SystemTime::now();
         let timeout = std::time::Duration::from_secs(self.config.session_timeout);
-        
+
         self.session_cache.retain(|_, session| {
-            now.duration_since(session.last_accessed).unwrap_or_default() < timeout
+            now.duration_since(session.last_accessed)
+                .unwrap_or_default()
+                < timeout
         });
     }
 
@@ -212,12 +220,18 @@ impl TlsManager {
 
         // 这里简化处理，实际应用中应该使用真正的证书生成库
         // 比如使用 openssl 或 rustls 的证书生成功能
-        
-        std::fs::write(&cert_path, format!("-----BEGIN CERTIFICATE-----\n自签名证书内容\n-----END CERTIFICATE-----\n"))
-            .map_err(|e| TlsError::CertificateGenerationFailed(e.to_string()))?;
-        
-        std::fs::write(&key_path, format!("-----BEGIN PRIVATE KEY-----\n私钥内容\n-----END PRIVATE KEY-----\n"))
-            .map_err(|e| TlsError::CertificateGenerationFailed(e.to_string()))?;
+
+        std::fs::write(
+            &cert_path,
+            "-----BEGIN CERTIFICATE-----\n自签名证书内容\n-----END CERTIFICATE-----\n",
+        )
+        .map_err(|e| TlsError::CertificateGenerationFailed(e.to_string()))?;
+
+        std::fs::write(
+            &key_path,
+            "-----BEGIN PRIVATE KEY-----\n私钥内容\n-----END PRIVATE KEY-----\n",
+        )
+        .map_err(|e| TlsError::CertificateGenerationFailed(e.to_string()))?;
 
         Ok((cert_path, key_path))
     }

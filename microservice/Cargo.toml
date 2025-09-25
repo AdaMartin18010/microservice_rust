@@ -196,6 +196,8 @@ tempfile = { workspace = true }
 criterion = { workspace = true, features = ["html_reports"] }
 futures = { workspace = true }
 rand = "0.8.5"
+# 修复 k8s-openapi 版本特性问题
+k8s-openapi = { version = "0.21.1", features = ["v1_28"] }
 
 [lib]
 name = "microservice"

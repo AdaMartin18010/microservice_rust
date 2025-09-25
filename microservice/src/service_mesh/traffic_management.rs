@@ -2,9 +2,9 @@
 //!
 //! 提供流量策略、重试、超时和限流功能
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// 流量管理器
@@ -44,25 +44,40 @@ impl TrafficManager {
     }
 
     /// 应用流量策略
-    pub async fn apply_policy<F, T>(&self, service_name: &str, operation: F) -> Result<T, TrafficError>
+    pub async fn apply_policy<F, T>(
+        &self,
+        service_name: &str,
+        operation: F,
+    ) -> Result<T, TrafficError>
     where
-        F: Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T, TrafficError>> + Send + 'static>> + Send + 'static,
+        F: Fn() -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<T, TrafficError>> + Send + 'static>,
+            > + Send
+            + 'static,
         T: Send + 'static,
     {
-        let policy = self.get_policy(service_name)
+        let policy = self
+            .get_policy(service_name)
             .unwrap_or(&self.config.default_policy);
 
         self.apply_retry_policy(policy, operation).await
     }
 
     /// 应用重试策略
-    async fn apply_retry_policy<F, T>(&self, policy: &TrafficPolicy, operation: F) -> Result<T, TrafficError>
+    async fn apply_retry_policy<F, T>(
+        &self,
+        policy: &TrafficPolicy,
+        operation: F,
+    ) -> Result<T, TrafficError>
     where
-        F: Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T, TrafficError>> + Send + 'static>> + Send + 'static,
+        F: Fn() -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = Result<T, TrafficError>> + Send + 'static>,
+            > + Send
+            + 'static,
         T: Send + 'static,
     {
         let mut last_error = None;
-        
+
         for attempt in 0..=policy.retry.max_attempts {
             if attempt > 0 {
                 let delay = policy.retry.calculate_delay(attempt);
@@ -71,12 +86,12 @@ impl TrafficManager {
 
             // 应用超时策略
             let result = tokio::time::timeout(policy.timeout.timeout, operation()).await;
-            
+
             match result {
                 Ok(Ok(value)) => return Ok(value),
                 Ok(Err(error)) => {
                     last_error = Some(error);
-                    if !policy.retry.should_retry(&last_error.as_ref().unwrap()) {
+                    if !policy.retry.should_retry(last_error.as_ref().unwrap()) {
                         break;
                     }
                 }
@@ -93,30 +108,23 @@ impl TrafficManager {
     }
 
     /// 检查限流
-    pub fn check_rate_limit(&self, _service_name: &str, _client_id: &str) -> Result<(), TrafficError> {
+    pub fn check_rate_limit(
+        &self,
+        _service_name: &str,
+        _client_id: &str,
+    ) -> Result<(), TrafficError> {
         // 这里简化处理，实际应用中应该使用更复杂的限流算法
         Ok(())
     }
 }
 
 /// 流量策略
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TrafficPolicy {
     pub retry: RetryPolicy,
     pub timeout: TimeoutPolicy,
     pub rate_limit: RateLimitPolicy,
     pub circuit_breaker: Option<String>,
-}
-
-impl Default for TrafficPolicy {
-    fn default() -> Self {
-        Self {
-            retry: RetryPolicy::default(),
-            timeout: TimeoutPolicy::default(),
-            rate_limit: RateLimitPolicy::default(),
-            circuit_breaker: None,
-        }
-    }
 }
 
 /// 重试策略
@@ -150,20 +158,22 @@ impl Default for RetryPolicy {
 impl RetryPolicy {
     /// 计算重试延迟
     pub fn calculate_delay(&self, attempt: u32) -> Duration {
-        let delay_ms = (self.initial_delay.as_millis() as f64 * self.backoff_multiplier.powi(attempt as i32 - 1)) as u64;
+        let delay_ms = (self.initial_delay.as_millis() as f64
+            * self.backoff_multiplier.powi(attempt as i32 - 1)) as u64;
         let delay = Duration::from_millis(delay_ms.min(self.max_delay.as_millis() as u64));
-        
+
         if self.jitter {
             // 添加随机抖动，避免惊群效应
             use std::collections::hash_map::DefaultHasher;
             use std::hash::{Hash, Hasher};
-            
+
             let mut hasher = DefaultHasher::new();
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_nanos()
                 .hash(&mut hasher);
-            
+
             let jitter_factor = 0.5 + (hasher.finish() % 100) as f64 / 200.0; // 0.5-1.0
             Duration::from_millis((delay.as_millis() as f64 * jitter_factor) as u64)
         } else {
@@ -175,8 +185,12 @@ impl RetryPolicy {
     pub fn should_retry(&self, error: &TrafficError) -> bool {
         match error {
             TrafficError::Timeout => self.retryable_errors.contains(&"timeout".to_string()),
-            TrafficError::ConnectionError => self.retryable_errors.contains(&"connection_error".to_string()),
-            TrafficError::ServiceUnavailable => self.retryable_errors.contains(&"service_unavailable".to_string()),
+            TrafficError::ConnectionError => self
+                .retryable_errors
+                .contains(&"connection_error".to_string()),
+            TrafficError::ServiceUnavailable => self
+                .retryable_errors
+                .contains(&"service_unavailable".to_string()),
             _ => false,
         }
     }
@@ -252,37 +266,27 @@ impl TrafficRule {
         if self.path_pattern == "*" {
             return true;
         }
-        
+
         if self.path_pattern.ends_with("*") {
             let prefix = &self.path_pattern[..self.path_pattern.len() - 1];
             return path.starts_with(prefix);
         }
-        
+
         self.path_pattern == path
     }
 
     /// 匹配方法
     pub fn matches_method(&self, method: &str) -> bool {
-        self.method.as_ref().map_or(true, |m| m == method)
+        self.method.as_ref().is_none_or(|m| m == method)
     }
 }
 
 /// 流量配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TrafficConfig {
     pub default_policy: TrafficPolicy,
     pub rules: Vec<TrafficRule>,
     pub global_rate_limit: Option<RateLimitPolicy>,
-}
-
-impl Default for TrafficConfig {
-    fn default() -> Self {
-        Self {
-            default_policy: TrafficPolicy::default(),
-            rules: Vec::new(),
-            global_rate_limit: None,
-        }
-    }
 }
 
 /// 流量错误

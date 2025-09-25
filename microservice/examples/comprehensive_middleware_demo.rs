@@ -6,20 +6,19 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use tracing::{info, warn, error};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
+use tracing::{error, info, warn};
 
 use microservice::{
-    middleware::{
-        JwtAuthMiddleware, JwtConfig, JwtAuthManager, Claims, JwtUser,
-        RequestValidationMiddleware, ValidationConfig, ValidationRequest,
-        HttpCacheMiddleware, CacheConfig, HttpCacheResponse,
-        MiddlewareManager, RateLimitMiddleware,
-        HealthCheckMiddleware, ErrorHandlingMiddleware,
-    },
     error::Result,
+    middleware::{
+        CacheConfig, Claims, ErrorHandlingMiddleware, HealthCheckMiddleware, HttpCacheMiddleware,
+        HttpCacheResponse, JwtAuthManager, JwtAuthMiddleware, JwtConfig, JwtUser,
+        MiddlewareManager, RateLimitMiddleware, RequestValidationMiddleware, ValidationConfig,
+        ValidationRequest,
+    },
     utils::current_timestamp_secs,
 };
 
@@ -63,7 +62,8 @@ impl DemoServer {
     pub fn new(config: DemoServerConfig) -> Self {
         let jwt_manager = JwtAuthManager::new(config.jwt_config.clone());
         let jwt_middleware = jwt_manager.auth_middleware.clone();
-        let validation_middleware = RequestValidationMiddleware::new(config.validation_config.clone());
+        let validation_middleware =
+            RequestValidationMiddleware::new(config.validation_config.clone());
         let cache_middleware = HttpCacheMiddleware::new(config.cache_config.clone());
 
         let middleware_manager = MiddlewareManager::new()
@@ -120,7 +120,11 @@ impl DemoServer {
         info!("生成的JWT令牌: {}", token);
 
         // 验证JWT令牌
-        match self.jwt_middleware.authenticate_request("/api/protected", Some(&token)).await {
+        match self
+            .jwt_middleware
+            .authenticate_request("/api/protected", Some(&token))
+            .await
+        {
             microservice::middleware::AuthResult::Authenticated(claims) => {
                 info!("JWT验证成功:");
                 info!("  用户ID: {}", claims.sub);
@@ -157,11 +161,19 @@ impl DemoServer {
             .with_permissions(user.permissions.clone())
             .with_expiration(current_timestamp_secs() - 10);
         let expired_token = self.jwt_middleware.generate_token(&expired_claims)?;
-        
-        match self.jwt_middleware.authenticate_request("/api/protected", Some(&expired_token)).await {
+
+        match self
+            .jwt_middleware
+            .authenticate_request("/api/protected", Some(&expired_token))
+            .await
+        {
             microservice::middleware::AuthResult::Authenticated(_) => warn!("过期令牌验证意外成功"),
-            microservice::middleware::AuthResult::Unauthorized(e) => info!("过期令牌正确被拒绝: {}", e),
-            microservice::middleware::AuthResult::Forbidden(e) => info!("过期令牌权限被拒绝: {}", e),
+            microservice::middleware::AuthResult::Unauthorized(e) => {
+                info!("过期令牌正确被拒绝: {}", e)
+            }
+            microservice::middleware::AuthResult::Forbidden(e) => {
+                info!("过期令牌权限被拒绝: {}", e)
+            }
             microservice::middleware::AuthResult::Skipped => info!("认证被跳过"),
         }
 
@@ -197,7 +209,10 @@ impl DemoServer {
         };
 
         // 验证有效请求
-        let result = self.validation_middleware.validate_request(&valid_request).await;
+        let result = self
+            .validation_middleware
+            .validate_request(&valid_request)
+            .await;
         if result.is_valid {
             info!("有效请求验证通过");
         } else {
@@ -206,9 +221,15 @@ impl DemoServer {
 
         // 测试恶意请求
         let mut malicious_request = valid_request.clone();
-        malicious_request.query_params.insert("script".to_string(), "<script>alert('xss')</script>".to_string());
-        
-        let result = self.validation_middleware.validate_request(&malicious_request).await;
+        malicious_request.query_params.insert(
+            "script".to_string(),
+            "<script>alert('xss')</script>".to_string(),
+        );
+
+        let result = self
+            .validation_middleware
+            .validate_request(&malicious_request)
+            .await;
         if !result.is_valid {
             info!("恶意请求正确被拦截: {:?}", result.errors);
         } else {
@@ -230,7 +251,10 @@ impl DemoServer {
             headers: {
                 let mut headers = HashMap::new();
                 headers.insert("Content-Type".to_string(), "application/json".to_string());
-                headers.insert("Cache-Control".to_string(), "public, max-age=300".to_string());
+                headers.insert(
+                    "Cache-Control".to_string(),
+                    "public, max-age=300".to_string(),
+                );
                 headers
             },
             body: b"{\"users\": [{\"id\": 1, \"name\": \"John Doe\"}]}".to_vec(),
@@ -285,10 +309,10 @@ impl DemoServer {
 
         for (method, path, description) in requests {
             info!("处理请求: {} {} - {}", method, path, description);
-            
+
             // 模拟请求延迟
             sleep(Duration::from_millis(100)).await;
-            
+
             // 检查是否需要认证
             let auth_result = self.jwt_middleware.authenticate_request(path, None).await;
             match auth_result {
@@ -341,7 +365,7 @@ async fn main() -> Result<()> {
     // 创建并启动演示服务器
     let config = DemoServerConfig::default();
     let server = DemoServer::new(config);
-    
+
     match server.start().await {
         Ok(_) => {
             info!("演示成功完成");

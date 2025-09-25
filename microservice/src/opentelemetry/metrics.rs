@@ -461,10 +461,11 @@ impl MetricsCollector {
     pub fn flush_buffer(&self) -> Result<()> {
         if let Some(exporter) = &self.exporter
             && let Ok(mut buffer) = self.metric_buffer.write()
-                && !buffer.is_empty() {
-                    exporter.export(&buffer)?;
-                    buffer.clear();
-                }
+            && !buffer.is_empty()
+        {
+            exporter.export(&buffer)?;
+            buffer.clear();
+        }
         Ok(())
     }
 

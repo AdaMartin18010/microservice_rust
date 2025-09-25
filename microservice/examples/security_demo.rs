@@ -2,14 +2,13 @@
 //!
 //! 展示OAuth2、TLS、输入验证、CORS和速率限制功能
 
+use microservice::security::{
+    CorsConfig, InputData, OAuth2Config, OAuth2Provider, RateLimit, RateLimitConfig,
+    SecurityConfig, SecurityManager, SecurityRequest, TlsConfig, TlsVersion,
+};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
-use microservice::security::{
-    SecurityManager, SecurityConfig, SecurityRequest, InputData,
-    OAuth2Config, OAuth2Provider, TlsConfig, CorsConfig, RateLimitConfig, RateLimit,
-    TlsVersion,
-};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 创建安全配置
     let security_config = create_security_config();
-    
+
     // 创建安全管理器
     let mut security_manager = SecurityManager::new(security_config);
 
@@ -116,9 +115,7 @@ fn create_security_config() -> SecurityConfig {
             "Authorization".to_string(),
             "X-Requested-With".to_string(),
         ],
-        exposed_headers: vec![
-            "X-Total-Count".to_string(),
-        ],
+        exposed_headers: vec!["X-Total-Count".to_string()],
         allow_credentials: true,
         max_age: 86400,
         allow_wildcard: false,
@@ -148,7 +145,9 @@ fn create_security_config() -> SecurityConfig {
 }
 
 /// 演示输入验证
-async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_input_validation(
+    security_manager: &SecurityManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔍 输入验证演示");
     println!("================");
 
@@ -161,9 +160,13 @@ async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(),
     };
 
     // 测试有效输入
-    input_data.query_params.insert("email".to_string(), "user@example.com".to_string());
-    input_data.query_params.insert("username".to_string(), "valid_user123".to_string());
-    
+    input_data
+        .query_params
+        .insert("email".to_string(), "user@example.com".to_string());
+    input_data
+        .query_params
+        .insert("username".to_string(), "valid_user123".to_string());
+
     let security_request = SecurityRequest {
         client_id: "test_client".to_string(),
         endpoint: "/api/users".to_string(),
@@ -190,9 +193,15 @@ async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(),
         headers: HashMap::new(),
         body: None,
     };
-    malicious_input_data.query_params.insert("email".to_string(), "<script>alert('xss')</script>".to_string());
-    malicious_input_data.query_params.insert("username".to_string(), "'; DROP TABLE users; --".to_string());
-    
+    malicious_input_data.query_params.insert(
+        "email".to_string(),
+        "<script>alert('xss')</script>".to_string(),
+    );
+    malicious_input_data.query_params.insert(
+        "username".to_string(),
+        "'; DROP TABLE users; --".to_string(),
+    );
+
     let malicious_request = SecurityRequest {
         client_id: "malicious_client".to_string(),
         endpoint: "/api/users".to_string(),
@@ -216,7 +225,9 @@ async fn demo_input_validation(security_manager: &SecurityManager) -> Result<(),
 }
 
 /// 演示CORS验证
-async fn demo_cors_validation(security_manager: &SecurityManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_cors_validation(
+    security_manager: &SecurityManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🌐 CORS验证演示");
     println!("================");
 
@@ -271,7 +282,9 @@ async fn demo_cors_validation(security_manager: &SecurityManager) -> Result<(), 
 }
 
 /// 演示速率限制
-async fn demo_rate_limiting(security_manager: &SecurityManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_rate_limiting(
+    security_manager: &SecurityManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n⚡ 速率限制演示");
     println!("================");
 
@@ -315,16 +328,27 @@ async fn demo_rate_limiting(security_manager: &SecurityManager) -> Result<(), Bo
 }
 
 /// 演示TLS功能
-async fn demo_tls_features(security_manager: &SecurityManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_tls_features(
+    security_manager: &SecurityManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔒 TLS功能演示");
     println!("===============");
 
     if let Some(tls_manager) = &security_manager.tls {
         println!("✅ TLS已启用");
-        println!("  最小TLS版本: {:?}", tls_manager.get_config().min_tls_version);
-        println!("  密码套件数量: {}", tls_manager.get_config().cipher_suites.len());
-        println!("  需要客户端证书: {}", tls_manager.get_config().require_client_cert);
-        
+        println!(
+            "  最小TLS版本: {:?}",
+            tls_manager.get_config().min_tls_version
+        );
+        println!(
+            "  密码套件数量: {}",
+            tls_manager.get_config().cipher_suites.len()
+        );
+        println!(
+            "  需要客户端证书: {}",
+            tls_manager.get_config().require_client_cert
+        );
+
         // 模拟证书验证
         if let Ok(validation) = tls_manager.validate_certificate("certs/server.crt") {
             println!("  证书验证结果:");
@@ -345,13 +369,15 @@ async fn demo_tls_features(security_manager: &SecurityManager) -> Result<(), Box
 }
 
 /// 演示OAuth2功能
-async fn demo_oauth2_features(security_manager: &mut SecurityManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_oauth2_features(
+    security_manager: &mut SecurityManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔑 OAuth2功能演示");
     println!("==================");
 
     if let Some(oauth2_manager) = &security_manager.oauth2 {
         println!("✅ OAuth2已配置");
-        
+
         // 获取提供商信息
         if let Some(provider) = oauth2_manager.get_provider("google") {
             println!("  提供商: {}", provider.name);

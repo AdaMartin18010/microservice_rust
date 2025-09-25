@@ -2,12 +2,12 @@
 //!
 //! 展示性能监控、分析和优化功能
 
-use std::time::{Duration, Instant};
-use std::thread;
 use microservice::performance::{
-    PerformanceMonitor, PerformanceConfig, PerformanceBenchmark, PerformanceTestSuite,
-    TestSuiteConfig, OutputFormat,
+    OutputFormat, PerformanceBenchmark, PerformanceConfig, PerformanceMonitor,
+    PerformanceTestSuite, TestSuiteConfig,
 };
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,10 +16,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 演示性能监控
     demo_performance_monitoring().await?;
-    
+
     // 演示基准测试
     demo_benchmarking()?;
-    
+
     // 演示性能测试套件
     demo_test_suite()?;
 
@@ -42,35 +42,40 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
 
     // 模拟一些工作负载
     println!("🔄 模拟工作负载...");
-    
+
     // 模拟函数执行
     for i in 0..5 {
         let start = Instant::now();
         simulate_cpu_intensive_work();
         let duration = start.elapsed();
-        
+
         let event = microservice::performance::profiler::ProfilerEvent::new(
             format!("cpu_work_{}", i),
             "function".to_string(),
             microservice::performance::profiler::ProfilerEventType::Function,
-        ).with_duration(duration);
-        
+        )
+        .with_duration(duration);
+
         monitor.record_event(event)?;
-        
-        println!("  完成CPU密集型任务 {} (耗时: {:.2}ms)", i + 1, duration.as_secs_f64() * 1000.0);
+
+        println!(
+            "  完成CPU密集型任务 {} (耗时: {:.2}ms)",
+            i + 1,
+            duration.as_secs_f64() * 1000.0
+        );
     }
 
     // 模拟内存使用
     let memory_usage = simulate_memory_usage();
     let mut metadata = std::collections::HashMap::new();
     metadata.insert("memory_bytes".to_string(), memory_usage.to_string());
-    
+
     let event = microservice::performance::profiler::ProfilerEvent::new(
         "memory_usage".to_string(),
         "memory".to_string(),
         microservice::performance::profiler::ProfilerEventType::Memory,
     );
-    
+
     monitor.record_event(event)?;
     println!("  记录内存使用: {} bytes", memory_usage);
 
@@ -79,21 +84,26 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
         let start = Instant::now();
         simulate_network_request().await;
         let duration = start.elapsed();
-        
+
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("url".to_string(), format!("api_request_{}", i));
         metadata.insert("method".to_string(), "GET".to_string());
         metadata.insert("status_code".to_string(), "200".to_string());
-        
+
         let event = microservice::performance::profiler::ProfilerEvent::new(
             "network_request".to_string(),
             "network".to_string(),
             microservice::performance::profiler::ProfilerEventType::Network,
-        ).with_duration(duration);
-        
+        )
+        .with_duration(duration);
+
         monitor.record_event(event)?;
-        
-        println!("  完成网络请求 {} (耗时: {:.2}ms)", i + 1, duration.as_secs_f64() * 1000.0);
+
+        println!(
+            "  完成网络请求 {} (耗时: {:.2}ms)",
+            i + 1,
+            duration.as_secs_f64() * 1000.0
+        );
     }
 
     // 模拟数据库查询
@@ -101,20 +111,28 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
         let start = Instant::now();
         simulate_database_query();
         let duration = start.elapsed();
-        
+
         let mut metadata = std::collections::HashMap::new();
-        metadata.insert("query".to_string(), format!("SELECT * FROM users WHERE id = {}", i));
+        metadata.insert(
+            "query".to_string(),
+            format!("SELECT * FROM users WHERE id = {}", i),
+        );
         metadata.insert("rows_affected".to_string(), "1".to_string());
-        
+
         let event = microservice::performance::profiler::ProfilerEvent::new(
             "database_query".to_string(),
             "database".to_string(),
             microservice::performance::profiler::ProfilerEventType::Database,
-        ).with_duration(duration);
-        
+        )
+        .with_duration(duration);
+
         monitor.record_event(event)?;
-        
-        println!("  完成数据库查询 {} (耗时: {:.2}ms)", i + 1, duration.as_secs_f64() * 1000.0);
+
+        println!(
+            "  完成数据库查询 {} (耗时: {:.2}ms)",
+            i + 1,
+            duration.as_secs_f64() * 1000.0
+        );
     }
 
     // 停止监控并获取统计信息
@@ -125,10 +143,22 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
     println!("\n📈 性能统计信息:");
     println!("  总事件数: {}", stats.total_events);
     println!("  类别数: {}", stats.categories.len());
-    println!("  总执行时间: {:.2}ms", stats.timing_stats.total_duration.as_secs_f64() * 1000.0);
-    println!("  平均执行时间: {:.2}ms", stats.timing_stats.average_duration.as_secs_f64() * 1000.0);
-    println!("  最大执行时间: {:.2}ms", stats.timing_stats.max_duration.as_secs_f64() * 1000.0);
-    println!("  平均内存使用: {} bytes", stats.memory_stats.average_memory);
+    println!(
+        "  总执行时间: {:.2}ms",
+        stats.timing_stats.total_duration.as_secs_f64() * 1000.0
+    );
+    println!(
+        "  平均执行时间: {:.2}ms",
+        stats.timing_stats.average_duration.as_secs_f64() * 1000.0
+    );
+    println!(
+        "  最大执行时间: {:.2}ms",
+        stats.timing_stats.max_duration.as_secs_f64() * 1000.0
+    );
+    println!(
+        "  平均内存使用: {} bytes",
+        stats.memory_stats.average_memory
+    );
 
     // 分析性能数据
     let report = monitor.analyze_performance()?;
@@ -142,7 +172,12 @@ async fn demo_performance_monitoring() -> Result<(), Box<dyn std::error::Error>>
     if !suggestions.is_empty() {
         println!("\n💡 优化建议:");
         for (i, suggestion) in suggestions.iter().take(3).enumerate() {
-            println!("  {}. {} - {}", i + 1, suggestion.title, suggestion.description);
+            println!(
+                "  {}. {} - {}",
+                i + 1,
+                suggestion.title,
+                suggestion.description
+            );
         }
     }
 
@@ -169,7 +204,10 @@ fn demo_benchmarking() -> Result<(), Box<dyn std::error::Error>> {
     println!("✅ 基准测试完成:");
     println!("  测试名称: {}", result.name);
     println!("  迭代次数: {}", result.iterations);
-    println!("  总耗时: {:.2}ms", result.total_duration.as_secs_f64() * 1000.0);
+    println!(
+        "  总耗时: {:.2}ms",
+        result.total_duration.as_secs_f64() * 1000.0
+    );
     println!("  平均耗时: {:.2}ns", result.average_duration().as_nanos());
     println!("  最小耗时: {:.2}ns", result.min_duration().as_nanos());
     println!("  最大耗时: {:.2}ns", result.max_duration().as_nanos());
@@ -193,12 +231,11 @@ fn demo_test_suite() -> Result<(), Box<dyn std::error::Error>> {
         output_format: OutputFormat::Text,
     };
 
-    let mut test_suite = PerformanceTestSuite::new("微服务性能测试".to_string())
-        .config(config);
+    let mut test_suite = PerformanceTestSuite::new("微服务性能测试".to_string()).config(config);
 
     // 添加多个基准测试
     println!("🔄 运行性能测试套件...");
-    
+
     test_suite.add_benchmark("字符串处理".to_string(), || {
         simulate_string_processing();
     });
@@ -244,7 +281,7 @@ fn simulate_memory_usage() -> usize {
 async fn simulate_network_request() {
     // 模拟网络延迟
     tokio::time::sleep(Duration::from_millis(50)).await;
-    
+
     // 模拟一些处理工作
     let mut result = String::new();
     for i in 0..1000 {
@@ -257,7 +294,7 @@ async fn simulate_network_request() {
 fn simulate_database_query() {
     // 模拟数据库查询延迟
     thread::sleep(Duration::from_millis(20));
-    
+
     // 模拟数据处理
     let mut users = Vec::new();
     for i in 0..100 {
@@ -289,12 +326,12 @@ fn simulate_math_calculation() {
 /// 模拟数据结构操作
 fn simulate_data_structure_operations() {
     use std::collections::HashMap;
-    
+
     let mut map = HashMap::new();
     for i in 0..1000 {
         map.insert(i, format!("value_{}", i));
     }
-    
+
     let mut sum = 0;
     for (key, value) in &map {
         sum += key + value.len();
@@ -308,7 +345,7 @@ fn simulate_memory_allocation() {
     for i in 0..10000 {
         data.push(i);
     }
-    
+
     // 模拟一些操作
     let sum: i32 = data.iter().sum();
     std::hint::black_box(sum);

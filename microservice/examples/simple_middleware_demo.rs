@@ -3,15 +3,15 @@
 //! 演示JWT认证、请求验证、缓存等中间件的基本功能
 
 use std::collections::HashMap;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use microservice::{
-    middleware::{
-        JwtAuthMiddleware, JwtConfig, JwtAuthManager, JwtUser,
-        RequestValidationMiddleware, ValidationConfig, ValidationRequest,
-        HttpCacheMiddleware, CacheConfig, HttpCacheRequest, HttpCacheResponse,
-    },
     error::Result,
+    middleware::{
+        CacheConfig, HttpCacheMiddleware, HttpCacheRequest, HttpCacheResponse, JwtAuthManager,
+        JwtAuthMiddleware, JwtConfig, JwtUser, RequestValidationMiddleware, ValidationConfig,
+        ValidationRequest,
+    },
 };
 
 /// 演示服务器配置
@@ -46,7 +46,8 @@ impl DemoServer {
     pub fn new(config: DemoServerConfig) -> Self {
         let jwt_manager = JwtAuthManager::new(config.jwt_config.clone());
         let jwt_middleware = jwt_manager.auth_middleware.clone();
-        let validation_middleware = RequestValidationMiddleware::new(config.validation_config.clone());
+        let validation_middleware =
+            RequestValidationMiddleware::new(config.validation_config.clone());
         let cache_middleware = HttpCacheMiddleware::new(config.cache_config.clone());
 
         Self {
@@ -96,7 +97,10 @@ impl DemoServer {
                 info!("生成的JWT令牌: {}", token);
 
                 // 验证JWT令牌
-                let auth_result = self.jwt_middleware.authenticate_request("/api/protected", Some(&token)).await;
+                let auth_result = self
+                    .jwt_middleware
+                    .authenticate_request("/api/protected", Some(&token))
+                    .await;
                 match auth_result {
                     microservice::middleware::AuthResult::Authenticated(claims) => {
                         info!("JWT验证成功:");
@@ -156,7 +160,10 @@ impl DemoServer {
         };
 
         // 验证有效请求
-        let result = self.validation_middleware.validate_request(&valid_request).await;
+        let result = self
+            .validation_middleware
+            .validate_request(&valid_request)
+            .await;
         if result.is_valid {
             info!("有效请求验证通过");
         } else {
@@ -165,9 +172,15 @@ impl DemoServer {
 
         // 测试恶意请求
         let mut malicious_request = valid_request.clone();
-        malicious_request.query_params.insert("script".to_string(), "<script>alert('xss')</script>".to_string());
-        
-        let result = self.validation_middleware.validate_request(&malicious_request).await;
+        malicious_request.query_params.insert(
+            "script".to_string(),
+            "<script>alert('xss')</script>".to_string(),
+        );
+
+        let result = self
+            .validation_middleware
+            .validate_request(&malicious_request)
+            .await;
         if !result.is_valid {
             info!("恶意请求正确被拦截: {:?}", result.errors);
         } else {
@@ -200,7 +213,10 @@ impl DemoServer {
             headers: {
                 let mut headers = HashMap::new();
                 headers.insert("Content-Type".to_string(), "application/json".to_string());
-                headers.insert("Cache-Control".to_string(), "public, max-age=300".to_string());
+                headers.insert(
+                    "Cache-Control".to_string(),
+                    "public, max-age=300".to_string(),
+                );
                 headers
             },
             body: b"{\"users\": [{\"id\": 1, \"name\": \"John Doe\"}]}".to_vec(),
@@ -233,7 +249,7 @@ async fn main() -> Result<()> {
     // 创建并启动演示服务器
     let config = DemoServerConfig::default();
     let server = DemoServer::new(config);
-    
+
     match server.start().await {
         Ok(_) => {
             info!("演示成功完成");

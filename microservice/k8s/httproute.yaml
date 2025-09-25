@@ -1,0 +1,385 @@
+# HTTPRoute 详细配置示例
+# 展示 Gateway API 的高级路由功能
+
+---
+# 基础 HTTPRoute - 简单路径匹配
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: basic-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1
+    backendRefs:
+    - name: api-gateway-service
+      port: 8080
+---
+# 高级 HTTPRoute - 多条件匹配
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: advanced-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  # 规则1：基于路径和方法的匹配
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users
+      method: GET
+    backendRefs:
+    - name: user-service
+      port: 8080
+      weight: 100
+  # 规则2：基于头部匹配
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users
+      method: POST
+      headers:
+      - name: Content-Type
+        value: "application/json"
+      - name: X-API-Version
+        value: "v1"
+    backendRefs:
+    - name: user-service
+      port: 8080
+      weight: 100
+  # 规则3：基于查询参数匹配
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/search
+      queryParams:
+      - name: q
+        type: RegularExpression
+        value: ".*"
+    backendRefs:
+    - name: search-service
+      port: 8080
+      weight: 100
+---
+# 金丝雀发布 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: canary-deployment-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  # 金丝雀流量：基于用户ID的哈希
+  - matches:
+    - headers:
+      - name: x-user-id
+        type: RegularExpression
+        value: ".*[02468]$"  # 用户ID以偶数结尾
+    backendRefs:
+    - name: user-service-v2
+      port: 8080
+      weight: 100
+  # 金丝雀流量：基于地理位置的流量
+  - matches:
+    - headers:
+      - name: x-region
+        value: "us-west"
+    backendRefs:
+    - name: user-service-v2
+      port: 8080
+      weight: 50
+    - name: user-service-v1
+      port: 8080
+      weight: 50
+  # 默认流量：90% v1, 10% v2
+  - backendRefs:
+    - name: user-service-v1
+      port: 8080
+      weight: 90
+    - name: user-service-v2
+      port: 8080
+      weight: 10
+---
+# A/B 测试 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ab-test-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  # A 组：基于 Cookie 的流量分配
+  - matches:
+    - headers:
+      - name: Cookie
+        type: RegularExpression
+        value: ".*experiment=a.*"
+    backendRefs:
+    - name: recommendation-service-a
+      port: 8080
+      weight: 100
+  # B 组：基于 Cookie 的流量分配
+  - matches:
+    - headers:
+      - name: Cookie
+        type: RegularExpression
+        value: ".*experiment=b.*"
+    backendRefs:
+    - name: recommendation-service-b
+      port: 8080
+      weight: 100
+  # 默认：随机分配
+  - backendRefs:
+    - name: recommendation-service-a
+      port: 8080
+      weight: 50
+    - name: recommendation-service-b
+      port: 8080
+      weight: 50
+---
+# 跨命名空间 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-namespace-route
+  namespace: frontend
+spec:
+  parentRefs:
+  - name: microservice-gateway
+    namespace: gateway-system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/products
+    backendRefs:
+    - name: product-service
+      port: 8080
+      namespace: backend
+      weight: 100
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/inventory
+    backendRefs:
+    - name: inventory-service
+      port: 8080
+      namespace: backend
+      weight: 100
+---
+# 对应的 ReferenceGrant
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: backend-services
+  namespace: backend
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: frontend
+  to:
+  - group: ""
+    kind: Service
+    name: product-service
+  - group: ""
+    kind: Service
+    name: inventory-service
+---
+# 重定向 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: redirect-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /old-api
+    filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        hostname: api.example.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /api/v2
+        statusCode: 301
+---
+# 请求修改 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: request-modification-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/legacy
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-API-Version
+          value: "v1"
+        - name: X-Legacy-Support
+          value: "true"
+        set:
+        - name: X-Forwarded-Proto
+          value: "https"
+        remove:
+        - "X-Old-Header"
+    backendRefs:
+    - name: legacy-service
+      port: 8080
+      weight: 100
+---
+# 响应修改 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: response-modification-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/public
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: X-Response-Time
+          value: "{{.ResponseTime}}"
+        - name: Cache-Control
+          value: "public, max-age=300"
+        set:
+        - name: X-Powered-By
+          value: "Microservice Gateway"
+        remove:
+        - "X-Internal-Header"
+    backendRefs:
+    - name: public-api-service
+      port: 8080
+      weight: 100
+---
+# 超时配置 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: timeout-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/slow
+    backendRefs:
+    - name: slow-service
+      port: 8080
+      weight: 100
+  timeouts:
+    request: "30s"
+    backendRequest: "25s"
+---
+# 重试配置 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: retry-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/unreliable
+    backendRefs:
+    - name: unreliable-service
+      port: 8080
+      weight: 100
+  retries:
+    count: 3
+    perTryTimeout: "5s"
+---
+# 健康检查 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: health-check-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /health
+    backendRefs:
+    - name: health-check-service
+      port: 8080
+      weight: 100
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /ready
+    backendRefs:
+    - name: readiness-check-service
+      port: 8080
+      weight: 100
+---
+# 监控和指标 HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: metrics-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /metrics
+    backendRefs:
+    - name: metrics-service
+      port: 9090
+      weight: 100
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /debug
+    backendRefs:
+    - name: debug-service
+      port: 8080
+      weight: 100

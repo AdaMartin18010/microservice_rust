@@ -2,8 +2,8 @@
 //!
 //! 提供跨域资源共享配置和验证
 
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
 /// CORS配置
@@ -45,10 +45,7 @@ impl Default for CorsConfig {
                 "Accept".to_string(),
                 "Origin".to_string(),
             ],
-            exposed_headers: vec![
-                "X-Total-Count".to_string(),
-                "X-Page-Count".to_string(),
-            ],
+            exposed_headers: vec!["X-Total-Count".to_string(), "X-Page-Count".to_string()],
             allow_credentials: true,
             max_age: 86400, // 24小时
             allow_wildcard: false,
@@ -106,7 +103,9 @@ impl CorsManager {
         let path_allowed = self.is_path_allowed(path);
 
         if !origin_allowed {
-            return Err(CorsError::OriginNotAllowed(origin.clone().unwrap_or_default()));
+            return Err(CorsError::OriginNotAllowed(
+                origin.clone().unwrap_or_default(),
+            ));
         }
 
         if !method_allowed {
@@ -230,10 +229,10 @@ impl CorsManager {
         }
 
         // 验证Origin
-        if let Some(origin) = origin {
-            if !self.is_origin_allowed(origin) {
-                return Err(CorsError::OriginNotAllowed(origin.clone()));
-            }
+        if let Some(origin) = origin
+            && !self.is_origin_allowed(origin)
+        {
+            return Err(CorsError::OriginNotAllowed(origin.clone()));
         }
 
         // 验证方法
@@ -262,7 +261,7 @@ impl CorsManager {
     /// 检查请求头是否被允许
     fn is_header_allowed(&self, header: &str) -> bool {
         // 简单请求头总是被允许
-        let simple_headers = vec![
+        let simple_headers = [
             "accept",
             "accept-language",
             "content-language",
@@ -371,6 +370,12 @@ pub struct CorsHeaders {
     pub max_age: u64,
 }
 
+impl Default for CorsHeaders {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CorsHeaders {
     /// 创建新的CORS响应头
     pub fn new() -> Self {
@@ -444,11 +449,17 @@ impl CorsHeaders {
         }
 
         if self.allow_credentials {
-            headers.push(("Access-Control-Allow-Credentials".to_string(), "true".to_string()));
+            headers.push((
+                "Access-Control-Allow-Credentials".to_string(),
+                "true".to_string(),
+            ));
         }
 
         if self.max_age > 0 {
-            headers.push(("Access-Control-Max-Age".to_string(), self.max_age.to_string()));
+            headers.push((
+                "Access-Control-Max-Age".to_string(),
+                self.max_age.to_string(),
+            ));
         }
 
         headers

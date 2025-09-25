@@ -1,14 +1,17 @@
 //! Poem 框架路由模块
-//! 
+//!
 //! 提供各种常用的路由配置和组合
 
 use poem::{
-    get, handler, listener::TcpListener, middleware::Tracing, post, put, delete,
-    EndpointExt, Route, Server, web::{Json, Path, Query},
+    EndpointExt, Route, Server, delete, get, handler,
+    listener::TcpListener,
+    middleware::Tracing,
+    post, put,
+    web::{Json, Path, Query},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use super::handlers::*;
 use super::middleware::*;
@@ -59,7 +62,10 @@ pub fn create_v1_routes() -> Route {
         .at("/health", get(health_check))
         .at("/metrics", get(metrics))
         .at("/users", get(get_users_v1).post(create_user_v1))
-        .at("/users/:id", get(get_user_v1).put(update_user_v1).delete(delete_user_v1))
+        .at(
+            "/users/:id",
+            get(get_user_v1).put(update_user_v1).delete(delete_user_v1),
+        )
 }
 
 /// V2 API路由
@@ -68,7 +74,10 @@ pub fn create_v2_routes() -> Route {
         .at("/health", get(health_check_detailed))
         .at("/metrics", get(metrics))
         .at("/users", get(get_users_v2).post(create_user_v2))
-        .at("/users/:id", get(get_user_v2).put(update_user_v2).delete(delete_user_v2))
+        .at(
+            "/users/:id",
+            get(get_user_v2).put(update_user_v2).delete(delete_user_v2),
+        )
         .at("/users/search", get(search_users_v2))
 }
 
@@ -108,7 +117,7 @@ pub struct UserSearchQuery {
 #[handler]
 async fn get_users_v1() -> PoemResult<Json<ApiResponse<Vec<User>>>> {
     info!("V1 API: 获取用户列表");
-    
+
     let users = vec![
         User {
             id: 1,
@@ -123,14 +132,14 @@ async fn get_users_v1() -> PoemResult<Json<ApiResponse<Vec<User>>>> {
             created_at: "2024-01-02T00:00:00Z".to_string(),
         },
     ];
-    
+
     Ok(Json(ApiResponse::success(users)))
 }
 
 #[handler]
 async fn get_user_v1(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V1 API: 获取用户 {}", id);
-    
+
     if id == 1 {
         let user = User {
             id: 1,
@@ -145,16 +154,18 @@ async fn get_user_v1(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<User>>>
 }
 
 #[handler]
-async fn create_user_v1(Json(request): Json<CreateUserRequest>) -> PoemResult<Json<ApiResponse<User>>> {
+async fn create_user_v1(
+    Json(request): Json<CreateUserRequest>,
+) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V1 API: 创建用户 {:?}", request);
-    
+
     let user = User {
         id: 3,
         name: request.name,
         email: request.email,
         created_at: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     Ok(Json(ApiResponse::success(user)))
 }
 
@@ -164,12 +175,14 @@ async fn update_user_v1(
     Json(request): Json<UpdateUserRequest>,
 ) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V1 API: 更新用户 {} {:?}", id, request);
-    
+
     if id == 1 {
         let user = User {
             id: 1,
             name: request.name.unwrap_or_else(|| "Alice".to_string()),
-            email: request.email.unwrap_or_else(|| "alice@example.com".to_string()),
+            email: request
+                .email
+                .unwrap_or_else(|| "alice@example.com".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
         };
         Ok(Json(ApiResponse::success(user)))
@@ -181,7 +194,7 @@ async fn update_user_v1(
 #[handler]
 async fn delete_user_v1(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<String>>> {
     info!("V1 API: 删除用户 {}", id);
-    
+
     if id == 1 {
         Ok(Json(ApiResponse::success(format!("用户 {} 已删除", id))))
     } else {
@@ -193,7 +206,7 @@ async fn delete_user_v1(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<Stri
 #[handler]
 async fn get_users_v2() -> PoemResult<Json<ApiResponse<Vec<User>>>> {
     info!("V2 API: 获取用户列表");
-    
+
     let users = vec![
         User {
             id: 1,
@@ -214,14 +227,14 @@ async fn get_users_v2() -> PoemResult<Json<ApiResponse<Vec<User>>>> {
             created_at: "2024-01-03T00:00:00Z".to_string(),
         },
     ];
-    
+
     Ok(Json(ApiResponse::success(users)))
 }
 
 #[handler]
 async fn get_user_v2(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V2 API: 获取用户 {}", id);
-    
+
     match id {
         1 => {
             let user = User {
@@ -246,16 +259,18 @@ async fn get_user_v2(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<User>>>
 }
 
 #[handler]
-async fn create_user_v2(Json(request): Json<CreateUserRequest>) -> PoemResult<Json<ApiResponse<User>>> {
+async fn create_user_v2(
+    Json(request): Json<CreateUserRequest>,
+) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V2 API: 创建用户 {:?}", request);
-    
+
     let user = User {
         id: 4,
         name: request.name,
         email: request.email,
         created_at: chrono::Utc::now().to_rfc3339(),
     };
-    
+
     Ok(Json(ApiResponse::success(user)))
 }
 
@@ -265,13 +280,15 @@ async fn update_user_v2(
     Json(request): Json<UpdateUserRequest>,
 ) -> PoemResult<Json<ApiResponse<User>>> {
     info!("V2 API: 更新用户 {} {:?}", id, request);
-    
+
     match id {
         1 => {
             let user = User {
                 id: 1,
                 name: request.name.unwrap_or_else(|| "Alice".to_string()),
-                email: request.email.unwrap_or_else(|| "alice@example.com".to_string()),
+                email: request
+                    .email
+                    .unwrap_or_else(|| "alice@example.com".to_string()),
                 created_at: "2024-01-01T00:00:00Z".to_string(),
             };
             Ok(Json(ApiResponse::success(user)))
@@ -280,7 +297,9 @@ async fn update_user_v2(
             let user = User {
                 id: 2,
                 name: request.name.unwrap_or_else(|| "Bob".to_string()),
-                email: request.email.unwrap_or_else(|| "bob@example.com".to_string()),
+                email: request
+                    .email
+                    .unwrap_or_else(|| "bob@example.com".to_string()),
                 created_at: "2024-01-02T00:00:00Z".to_string(),
             };
             Ok(Json(ApiResponse::success(user)))
@@ -292,7 +311,7 @@ async fn update_user_v2(
 #[handler]
 async fn delete_user_v2(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<String>>> {
     info!("V2 API: 删除用户 {}", id);
-    
+
     match id {
         1 | 2 => Ok(Json(ApiResponse::success(format!("用户 {} 已删除", id)))),
         _ => Ok(Json(ApiResponse::error(format!("用户 {} 未找到", id)))),
@@ -300,9 +319,11 @@ async fn delete_user_v2(Path(id): Path<u64>) -> PoemResult<Json<ApiResponse<Stri
 }
 
 #[handler]
-async fn search_users_v2(Query(query): Query<UserSearchQuery>) -> PoemResult<Json<ApiResponse<Vec<User>>>> {
+async fn search_users_v2(
+    Query(query): Query<UserSearchQuery>,
+) -> PoemResult<Json<ApiResponse<Vec<User>>>> {
     info!("V2 API: 搜索用户 {:?}", query);
-    
+
     let mut users = vec![
         User {
             id: 1,
@@ -323,28 +344,28 @@ async fn search_users_v2(Query(query): Query<UserSearchQuery>) -> PoemResult<Jso
             created_at: "2024-01-03T00:00:00Z".to_string(),
         },
     ];
-    
+
     // 简单的搜索过滤
     if let Some(name) = &query.name {
         users.retain(|user| user.name.contains(name));
     }
-    
+
     if let Some(email) = &query.email {
         users.retain(|user| user.email.contains(email));
     }
-    
+
     // 分页处理
     let page = query.page.unwrap_or(1);
     let limit = query.limit.unwrap_or(10);
     let start = ((page - 1) * limit) as usize;
     let end = (start + limit as usize).min(users.len());
-    
+
     if start < users.len() {
         users = users[start..end].to_vec();
     } else {
         users = Vec::new();
     }
-    
+
     Ok(Json(ApiResponse::success(users)))
 }
 

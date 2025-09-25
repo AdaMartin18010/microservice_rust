@@ -5,35 +5,35 @@
 
 #![allow(async_fn_in_trait)]
 
+use anyhow::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, Mutex, Semaphore};
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
-use async_trait::async_trait;
 use thiserror::Error;
+use tokio::sync::{Mutex, RwLock, Semaphore};
 
 /// 错误类型定义
 #[derive(Error, Debug)]
 pub enum AdvancedServiceError {
     #[error("服务不可用: {0}")]
     ServiceUnavailable(String),
-    
+
     #[error("请求超时")]
     Timeout,
-    
+
     #[error("限流触发")]
     RateLimited,
-    
+
     #[error("熔断器开启")]
     CircuitBreakerOpen,
-    
+
     #[error("配置错误: {0}")]
     Configuration(String),
-    
+
     #[error("内部错误: {0}")]
     Internal(#[from] anyhow::Error),
 }
@@ -115,28 +115,41 @@ pub struct ServiceMetrics {
 #[async_trait]
 pub trait AdvancedService {
     /// 处理服务请求
-    async fn process_request(&self, request: AdvancedServiceRequest) -> Result<AdvancedServiceResponse, AdvancedServiceError>;
-    
+    async fn process_request(
+        &self,
+        request: AdvancedServiceRequest,
+    ) -> Result<AdvancedServiceResponse, AdvancedServiceError>;
+
     /// 健康检查
     async fn health_check(&self) -> Result<AdvancedHealthStatus, AdvancedServiceError>;
-    
+
     /// 获取服务指标
     async fn get_metrics(&self) -> Result<ServiceMetrics, AdvancedServiceError>;
-    
+
     /// 优雅关闭
     async fn shutdown(&self) -> Result<(), AdvancedServiceError>;
-    
+
     /// 批量处理请求
-    async fn process_batch(&self, requests: Vec<AdvancedServiceRequest>) -> Result<Vec<AdvancedServiceResponse>, AdvancedServiceError>;
+    async fn process_batch(
+        &self,
+        requests: Vec<AdvancedServiceRequest>,
+    ) -> Result<Vec<AdvancedServiceResponse>, AdvancedServiceError>;
 }
 
 /// 使用GAT定义的高级异步迭代器
-pub trait AdvancedAsyncIterator where Self: 'static {
-    type Item<'a> where Self: 'a;
-    type Future<'a>: Future<Output = Option<Self::Item<'a>>> where Self: 'a;
-    
+pub trait AdvancedAsyncIterator
+where
+    Self: 'static,
+{
+    type Item<'a>
+    where
+        Self: 'a;
+    type Future<'a>: Future<Output = Option<Self::Item<'a>>>
+    where
+        Self: 'a;
+
     fn next<'a>(&'a mut self) -> Self::Future<'a>;
-    
+
     /// 异步收集所有项目
     async fn collect_all(&mut self) -> Vec<Self::Item<'static>>
     where
@@ -171,7 +184,7 @@ impl RequestStream {
 impl AdvancedAsyncIterator for RequestStream {
     type Item<'a> = &'a AdvancedServiceRequest;
     type Future<'a> = Pin<Box<dyn Future<Output = Option<&'a AdvancedServiceRequest>> + 'a>>;
-    
+
     fn next<'a>(&'a mut self) -> Self::Future<'a> {
         Box::pin(async move {
             if self.current_index < self.requests.len() {
@@ -229,7 +242,7 @@ impl CircuitBreaker {
             last_failure_time: None,
         }
     }
-    
+
     pub async fn call<F, T>(&mut self, f: F) -> Result<T, AdvancedServiceError>
     where
         F: FnOnce() -> Result<T, AdvancedServiceError>,
@@ -249,7 +262,7 @@ impl CircuitBreaker {
                 // 正常状态
             }
         }
-        
+
         match f() {
             Ok(result) => {
                 self.on_success();
@@ -261,7 +274,7 @@ impl CircuitBreaker {
             }
         }
     }
-    
+
     fn should_attempt_reset(&self) -> bool {
         if let Some(last_failure) = self.last_failure_time {
             last_failure.elapsed() >= self.timeout
@@ -269,17 +282,17 @@ impl CircuitBreaker {
             true
         }
     }
-    
+
     fn on_success(&mut self) {
         self.state = CircuitState::Closed;
         self.failure_count = 0;
         self.last_failure_time = None;
     }
-    
+
     fn on_failure(&mut self) {
         self.failure_count += 1;
         self.last_failure_time = Some(Instant::now());
-        
+
         if self.failure_count >= self.failure_threshold {
             self.state = CircuitState::Open;
         }
@@ -303,10 +316,10 @@ impl RateLimiter {
             window,
         }
     }
-    
+
     pub async fn check_rate_limit(&mut self) -> Result<(), AdvancedServiceError> {
         let now = Instant::now();
-        
+
         // 清理过期的请求记录
         while let Some(&oldest) = self.requests.front() {
             if now.duration_since(oldest) > self.window {
@@ -315,11 +328,11 @@ impl RateLimiter {
                 break;
             }
         }
-        
+
         if self.requests.len() >= self.max_requests as usize {
             return Err(AdvancedServiceError::RateLimited);
         }
-        
+
         self.requests.push_back(now);
         Ok(())
     }
@@ -347,29 +360,30 @@ impl AdvancedServiceImpl {
             rate_limiter: Arc::new(RwLock::new(RateLimiter::new(100, Duration::from_secs(1)))),
         }
     }
-    
+
     async fn update_metrics(&self, processing_time: Duration, is_error: bool) {
         let mut metrics = self.metrics.write().await;
         let mut total_requests = self.total_requests.lock().await;
         let mut error_count = self.error_count.lock().await;
-        
+
         *total_requests += 1;
         if is_error {
             *error_count += 1;
         }
-        
+
         // 计算平均响应时间 - 使用更稳定的增量平均算法
         let current_avg = metrics.average_response_time_ms;
         let new_time = processing_time.as_millis() as f64;
-        metrics.average_response_time_ms = (current_avg * (*total_requests - 1) as f64 + new_time) / *total_requests as f64;
-        
+        metrics.average_response_time_ms =
+            (current_avg * (*total_requests - 1) as f64 + new_time) / *total_requests as f64;
+
         // 计算错误率 - 防止除零错误
         metrics.error_rate = if *total_requests > 0 {
             *error_count as f64 / *total_requests as f64
         } else {
             0.0
         };
-        
+
         // 计算每秒请求数 - 防止除零错误
         let uptime = self.start_time.elapsed().as_secs_f64();
         if uptime > 0.0 {
@@ -377,7 +391,7 @@ impl AdvancedServiceImpl {
         } else {
             metrics.requests_per_second = 0.0;
         }
-        
+
         // 更新活跃连接数
         metrics.active_connections = *self.active_requests.lock().await;
     }
@@ -386,53 +400,57 @@ impl AdvancedServiceImpl {
 #[async_trait]
 #[allow(dead_code)]
 impl AdvancedService for AdvancedServiceImpl {
-    async fn process_request(&self, request: AdvancedServiceRequest) -> Result<AdvancedServiceResponse, AdvancedServiceError> {
+    async fn process_request(
+        &self,
+        request: AdvancedServiceRequest,
+    ) -> Result<AdvancedServiceResponse, AdvancedServiceError> {
         let start_time = Instant::now();
-        
+
         // 获取信号量许可
-        let _permit = self.semaphore.acquire().await
-            .map_err(|_| AdvancedServiceError::ServiceUnavailable("无法获取处理许可".to_string()))?;
-        
+        let _permit = self.semaphore.acquire().await.map_err(|_| {
+            AdvancedServiceError::ServiceUnavailable("无法获取处理许可".to_string())
+        })?;
+
         // 更新活跃请求数
         {
             let mut active = self.active_requests.lock().await;
             *active += 1;
         }
-        
+
         // 限流检查
         {
             let mut rate_limiter = self.rate_limiter.write().await;
             rate_limiter.check_rate_limit().await?;
         }
-        
+
         // 模拟处理逻辑
         let result = match request.data.get("operation") {
-            Some(op) => {
-                match op.as_str() {
-                    Some("success") => Ok(serde_json::json!({"status": "success", "data": "processed"})),
-                    Some("error") => Err(AdvancedServiceError::Internal(anyhow::anyhow!("模拟错误"))),
-                    Some("timeout") => {
-                        tokio::time::sleep(Duration::from_secs(2)).await;
-                        Ok(serde_json::json!({"status": "timeout"}))
-                    }
-                    _ => Ok(serde_json::json!({"status": "unknown"}))
+            Some(op) => match op.as_str() {
+                Some("success") => {
+                    Ok(serde_json::json!({"status": "success", "data": "processed"}))
                 }
-            }
-            None => Ok(serde_json::json!({"status": "no_operation"}))
+                Some("error") => Err(AdvancedServiceError::Internal(anyhow::anyhow!("模拟错误"))),
+                Some("timeout") => {
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    Ok(serde_json::json!({"status": "timeout"}))
+                }
+                _ => Ok(serde_json::json!({"status": "unknown"})),
+            },
+            None => Ok(serde_json::json!({"status": "no_operation"})),
         };
-        
+
         let processing_time = start_time.elapsed();
         let is_error = result.is_err();
-        
+
         // 更新指标
         self.update_metrics(processing_time, is_error).await;
-        
+
         // 更新活跃请求数
         {
             let mut active = self.active_requests.lock().await;
             *active -= 1;
         }
-        
+
         match result {
             Ok(data) => Ok(AdvancedServiceResponse {
                 id: request.id,
@@ -450,20 +468,20 @@ impl AdvancedService for AdvancedServiceImpl {
             }),
         }
     }
-    
+
     #[allow(dead_code)]
     async fn health_check(&self) -> Result<AdvancedHealthStatus, AdvancedServiceError> {
         let metrics = self.metrics.read().await;
         let active_requests = *self.active_requests.lock().await;
         let total_requests = *self.total_requests.lock().await;
         let error_count = *self.error_count.lock().await;
-        
+
         let error_rate = if total_requests > 0 {
             error_count as f64 / total_requests as f64
         } else {
             0.0
         };
-        
+
         let status = if error_rate > 0.1 {
             HealthState::Unhealthy
         } else if error_rate > 0.05 {
@@ -471,7 +489,7 @@ impl AdvancedService for AdvancedServiceImpl {
         } else {
             HealthState::Healthy
         };
-        
+
         Ok(AdvancedHealthStatus {
             service: self.name.clone(),
             status,
@@ -487,22 +505,27 @@ impl AdvancedService for AdvancedServiceImpl {
             error_rate,
         })
     }
-    
+
     #[allow(dead_code)]
     async fn get_metrics(&self) -> Result<ServiceMetrics, AdvancedServiceError> {
         let metrics = self.metrics.read().await;
         Ok(metrics.clone())
     }
-    
+
     #[allow(dead_code)]
     async fn shutdown(&self) -> Result<(), AdvancedServiceError> {
         tracing::info!("正在关闭服务: {}", self.name);
-        
+
         // 等待所有活跃请求完成
         // 获取所有可用的许可，这样新的请求就无法获取许可
-        let permits = self.semaphore.acquire_many(self.semaphore.available_permits() as u32).await
-            .map_err(|_| AdvancedServiceError::ServiceUnavailable("无法获取关闭许可".to_string()))?;
-        
+        let permits = self
+            .semaphore
+            .acquire_many(self.semaphore.available_permits() as u32)
+            .await
+            .map_err(|_| {
+                AdvancedServiceError::ServiceUnavailable("无法获取关闭许可".to_string())
+            })?;
+
         // 等待所有活跃请求完成
         let active_requests = *self.active_requests.lock().await;
         if active_requests > 0 {
@@ -510,26 +533,29 @@ impl AdvancedService for AdvancedServiceImpl {
             // 这里可以添加更复杂的等待逻辑，比如等待活跃请求数变为0
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        
+
         // 释放许可
         drop(permits);
-        
+
         tracing::info!("服务已关闭: {}", self.name);
         Ok(())
     }
-    
+
     #[allow(dead_code)]
-    async fn process_batch(&self, requests: Vec<AdvancedServiceRequest>) -> Result<Vec<AdvancedServiceResponse>, AdvancedServiceError> {
+    async fn process_batch(
+        &self,
+        requests: Vec<AdvancedServiceRequest>,
+    ) -> Result<Vec<AdvancedServiceResponse>, AdvancedServiceError> {
         let mut responses = Vec::with_capacity(requests.len());
-        
+
         // 并行处理请求
         let futures: Vec<_> = requests
             .into_iter()
             .map(|request| self.process_request(request))
             .collect();
-        
+
         let results = futures::future::join_all(futures).await;
-        
+
         for result in results {
             match result {
                 Ok(response) => responses.push(response),
@@ -545,7 +571,7 @@ impl AdvancedService for AdvancedServiceImpl {
                 }
             }
         }
-        
+
         Ok(responses)
     }
 }
@@ -553,8 +579,15 @@ impl AdvancedService for AdvancedServiceImpl {
 /// 服务工厂 - 使用async-trait宏保持dyn兼容性
 #[async_trait]
 pub trait ServiceFactory {
-    async fn create_service(&self, name: String, config: ServiceConfig) -> Result<Box<dyn AdvancedService + Send + Sync>, AdvancedServiceError>;
-    async fn destroy_service(&self, service: Box<dyn AdvancedService + Send + Sync>) -> Result<(), AdvancedServiceError>;
+    async fn create_service(
+        &self,
+        name: String,
+        config: ServiceConfig,
+    ) -> Result<Box<dyn AdvancedService + Send + Sync>, AdvancedServiceError>;
+    async fn destroy_service(
+        &self,
+        service: Box<dyn AdvancedService + Send + Sync>,
+    ) -> Result<(), AdvancedServiceError>;
 }
 
 /// 服务配置
@@ -584,12 +617,19 @@ pub struct DefaultServiceFactory;
 
 #[async_trait]
 impl ServiceFactory for DefaultServiceFactory {
-    async fn create_service(&self, name: String, config: ServiceConfig) -> Result<Box<dyn AdvancedService + Send + Sync>, AdvancedServiceError> {
+    async fn create_service(
+        &self,
+        name: String,
+        config: ServiceConfig,
+    ) -> Result<Box<dyn AdvancedService + Send + Sync>, AdvancedServiceError> {
         let service = AdvancedServiceImpl::new(name, config.max_concurrent_requests);
         Ok(Box::new(service))
     }
-    
-    async fn destroy_service(&self, service: Box<dyn AdvancedService + Send + Sync>) -> Result<(), AdvancedServiceError> {
+
+    async fn destroy_service(
+        &self,
+        service: Box<dyn AdvancedService + Send + Sync>,
+    ) -> Result<(), AdvancedServiceError> {
         service.shutdown().await?;
         Ok(())
     }
@@ -609,7 +649,7 @@ impl ServiceRegistry {
             factory,
         }
     }
-    
+
     pub async fn register_service(
         &self,
         name: String,
@@ -620,21 +660,21 @@ impl ServiceRegistry {
         services.insert(name, Arc::from(service));
         Ok(())
     }
-    
+
     pub async fn get_service(&self, name: &str) -> Option<Arc<dyn AdvancedService + Send + Sync>> {
         let services = self.services.read().await;
         services.get(name).cloned()
     }
-    
+
     pub async fn list_services(&self) -> Vec<String> {
         let services = self.services.read().await;
         services.keys().cloned().collect()
     }
-    
+
     pub async fn health_check_all(&self) -> HashMap<String, AdvancedHealthStatus> {
         let services = self.services.read().await;
         let mut health_status = HashMap::new();
-        
+
         for (name, service) in services.iter() {
             match service.health_check().await {
                 Ok(status) => {
@@ -645,7 +685,7 @@ impl ServiceRegistry {
                 }
             }
         }
-        
+
         health_status
     }
 }
@@ -653,11 +693,11 @@ impl ServiceRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_advanced_service() {
         let service = AdvancedServiceImpl::new("test-service".to_string(), 10);
-        
+
         let request = AdvancedServiceRequest {
             id: "test-1".to_string(),
             data: serde_json::json!({"operation": "success"}),
@@ -665,39 +705,47 @@ mod tests {
             priority: Priority::Normal,
             timeout: Some(Duration::from_secs(5)),
         };
-        
+
         let response = service.process_request(request).await.unwrap();
         assert_eq!(response.id, "test-1");
         assert!(matches!(response.status, ResponseStatus::Success));
     }
-    
+
     #[tokio::test]
     async fn test_circuit_breaker() {
         let mut cb = CircuitBreaker::new(3, Duration::from_secs(1));
-        
+
         // 正常请求
         let result = cb.call(|| Ok("success")).await;
         assert!(result.is_ok());
-        
+
         // 模拟失败
         for _ in 0..3 {
-            let _: Result<&str, AdvancedServiceError> = cb.call(|| Err(AdvancedServiceError::ServiceUnavailable("test".to_string()))).await;
+            let _: Result<&str, AdvancedServiceError> = cb
+                .call(|| Err(AdvancedServiceError::ServiceUnavailable("test".to_string())))
+                .await;
         }
-        
+
         // 熔断器应该开启
         let result = cb.call(|| Ok("success")).await;
-        assert!(matches!(result, Err(AdvancedServiceError::CircuitBreakerOpen)));
+        assert!(matches!(
+            result,
+            Err(AdvancedServiceError::CircuitBreakerOpen)
+        ));
     }
-    
+
     #[tokio::test]
     async fn test_rate_limiter() {
         let mut rl = RateLimiter::new(2, Duration::from_millis(100));
-        
+
         // 前两个请求应该成功
         assert!(rl.check_rate_limit().await.is_ok());
         assert!(rl.check_rate_limit().await.is_ok());
-        
+
         // 第三个请求应该被限流
-        assert!(matches!(rl.check_rate_limit().await, Err(AdvancedServiceError::RateLimited)));
+        assert!(matches!(
+            rl.check_rate_limit().await,
+            Err(AdvancedServiceError::RateLimited)
+        ));
     }
 }

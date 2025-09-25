@@ -1,0 +1,281 @@
+# Gateway API 配置示例
+# 基于 Kubernetes Gateway API v1.0 标准
+
+---
+# GatewayClass - 定义网关实现类型
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: traefik-gateway-class
+  annotations:
+    gateway.networking.k8s.io/description: "Traefik Gateway Class for microservices"
+spec:
+  controllerName: traefik.io/gateway-controller
+  parametersRef:
+    group: traefik.io
+    kind: GatewayClassConfig
+    name: traefik-config
+---
+# GatewayClass 参数配置
+apiVersion: traefik.io/v1alpha1
+kind: GatewayClassConfig
+metadata:
+  name: traefik-config
+spec:
+  entryPoints:
+    web:
+      address: ":80"
+    websecure:
+      address: ":443"
+  certificates:
+    - secretName: api-tls-cert
+---
+# Gateway - 网关实例
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: microservice-gateway
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+spec:
+  gatewayClassName: traefik-gateway-class
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: api-tls-cert
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+# TLS 证书 Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-tls-cert
+  namespace: default
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTi... # Base64 编码的证书
+  tls.key: LS0tLS1CRUdJTi... # Base64 编码的私钥
+---
+# HTTPRoute - 用户服务路由
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: user-service-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/users
+    backendRefs:
+    - name: user-service
+      port: 8080
+      weight: 100
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/auth
+    backendRefs:
+    - name: auth-service
+      port: 8080
+      weight: 100
+---
+# HTTPRoute - 订单服务路由
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: order-service-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/orders
+    backendRefs:
+    - name: order-service
+      port: 8080
+      weight: 100
+---
+# HTTPRoute - 灰度发布路由
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: canary-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - headers:
+      - name: x-canary
+        value: "true"
+    - headers:
+      - name: x-user-id
+        type: RegularExpression
+        value: ".*[02468]$"  # 用户ID以偶数结尾的请求
+    backendRefs:
+    - name: user-service-v2
+      port: 8080
+      weight: 100
+  - backendRefs:
+    - name: user-service-v1
+      port: 8080
+      weight: 90
+    - name: user-service-v2
+      port: 8080
+      weight: 10
+---
+# HTTPRoute - 跨命名空间路由
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-ns-route
+  namespace: frontend
+spec:
+  parentRefs:
+  - name: microservice-gateway
+    namespace: default
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/products
+    backendRefs:
+    - name: product-service
+      port: 8080
+      namespace: backend
+      weight: 100
+---
+# HTTPRoute - 限流和重试配置
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: rate-limited-route
+  namespace: default
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: "default-rate-limit@kubernetescrd"
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1/public
+    backendRefs:
+    - name: public-api-service
+      port: 8080
+      weight: 100
+---
+# 限流中间件
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: default
+spec:
+  rateLimit:
+    burst: 100
+    average: 50
+---
+# 重试中间件
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: retry
+  namespace: default
+spec:
+  retry:
+    attempts: 3
+    initialInterval: 100ms
+---
+# TCPRoute - TCP 服务路由
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: grpc-service-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: microservice-gateway
+  rules:
+  - backendRefs:
+    - name: grpc-service
+      port: 9090
+      weight: 100
+---
+# ReferenceGrant - 跨命名空间访问授权
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: backend-to-frontend
+  namespace: backend
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: frontend
+  to:
+  - group: ""
+    kind: Service
+---
+# Gateway API 监控配置
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: gateway-api-metrics
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: traefik
+  endpoints:
+  - port: metrics
+    path: /metrics
+---
+# Prometheus 规则
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gateway-api-rules
+  namespace: monitoring
+spec:
+  groups:
+  - name: gateway-api
+    rules:
+    - alert: GatewayHighErrorRate
+      expr: rate(traefik_http_requests_total{code=~"5.."}[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Gateway high error rate"
+        description: "Gateway has error rate {{ $value }}"
+    - alert: GatewayHighLatency
+      expr: histogram_quantile(0.95, rate(traefik_http_request_duration_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Gateway high latency"
+        description: "Gateway has P95 latency {{ $value }}s"

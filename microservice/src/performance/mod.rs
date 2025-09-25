@@ -2,26 +2,25 @@
 //!
 //! 提供性能监控、分析和优化建议功能
 
-pub mod profiler;
 pub mod analyzer;
 pub mod optimizer;
+pub mod profiler;
 
-pub use profiler::{
-    PerformanceProfiler, ProfilerConfig, ProfilerStats, ProfilerEvent,
-    ProfilerError, ProfilerResult,
-};
 pub use analyzer::{
-    PerformanceAnalyzer, PerformanceReport, PerformanceMetrics,
-    BottleneckAnalysis, OptimizationSuggestion,
+    BottleneckAnalysis, OptimizationSuggestion, PerformanceAnalyzer, PerformanceMetrics,
+    PerformanceReport,
 };
 pub use optimizer::{
-    PerformanceOptimizer, OptimizationConfig, OptimizationResult,
-    OptimizationStrategy,
+    OptimizationConfig, OptimizationResult, OptimizationStrategy, PerformanceOptimizer,
+};
+pub use profiler::{
+    PerformanceProfiler, ProfilerConfig, ProfilerError, ProfilerEvent, ProfilerResult,
+    ProfilerStats,
 };
 
-use std::time::{Duration, Instant};
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// 性能监控器
 #[derive(Debug)]
@@ -65,13 +64,18 @@ impl PerformanceMonitor {
     }
 
     /// 生成优化建议
-    pub fn generate_optimization_suggestions(&mut self) -> ProfilerResult<Vec<OptimizationSuggestion>> {
+    pub fn generate_optimization_suggestions(
+        &mut self,
+    ) -> ProfilerResult<Vec<OptimizationSuggestion>> {
         let report = self.analyze_performance()?;
         Ok(self.optimizer.generate_suggestions(&report))
     }
 
     /// 应用优化策略
-    pub fn apply_optimizations(&mut self, strategies: Vec<OptimizationStrategy>) -> ProfilerResult<OptimizationResult> {
+    pub fn apply_optimizations(
+        &mut self,
+        strategies: Vec<OptimizationStrategy>,
+    ) -> ProfilerResult<OptimizationResult> {
         Ok(self.optimizer.apply_optimizations(strategies))
     }
 
@@ -216,7 +220,7 @@ impl BenchmarkResult {
 
         let mut sorted_results = self.results.clone();
         sorted_results.sort();
-        
+
         let index = ((p / 100.0) * (sorted_results.len() - 1) as f64) as usize;
         sorted_results[index.min(sorted_results.len() - 1)]
     }
@@ -226,6 +230,12 @@ impl BenchmarkResult {
 #[derive(Debug)]
 pub struct PerformanceComparator {
     benchmarks: HashMap<String, BenchmarkResult>,
+}
+
+impl Default for PerformanceComparator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PerformanceComparator {
@@ -249,7 +259,7 @@ impl PerformanceComparator {
         };
 
         let mut benchmark_results: Vec<_> = self.benchmarks.values().collect();
-        benchmark_results.sort_by(|a, b| a.average_duration().cmp(&b.average_duration()));
+        benchmark_results.sort_by_key(|a| a.average_duration());
 
         // 生成比较报告
         for (i, result) in benchmark_results.iter().enumerate() {
@@ -265,18 +275,19 @@ impl PerformanceComparator {
         }
 
         // 生成总结
-        if let Some(fastest) = benchmark_results.first() {
-            if let Some(slowest) = benchmark_results.last() {
-                let speedup = slowest.average_duration().as_nanos() as f64 / fastest.average_duration().as_nanos() as f64;
-                report.summary = format!(
-                    "最快: {} ({:.2}ns), 最慢: {} ({:.2}ns), 速度差异: {:.2}x",
-                    fastest.name,
-                    fastest.average_duration().as_nanos(),
-                    slowest.name,
-                    slowest.average_duration().as_nanos(),
-                    speedup
-                );
-            }
+        if let Some(fastest) = benchmark_results.first()
+            && let Some(slowest) = benchmark_results.last()
+        {
+            let speedup = slowest.average_duration().as_nanos() as f64
+                / fastest.average_duration().as_nanos() as f64;
+            report.summary = format!(
+                "最快: {} ({:.2}ns), 最慢: {} ({:.2}ns), 速度差异: {:.2}x",
+                fastest.name,
+                fastest.average_duration().as_nanos(),
+                slowest.name,
+                slowest.average_duration().as_nanos(),
+                speedup
+            );
         }
 
         report
@@ -361,7 +372,7 @@ impl PerformanceTestSuite {
         let mut benchmark = PerformanceBenchmark::new(name.clone())
             .iterations(self.config.iterations)
             .warmup_iterations(self.config.warmup_iterations);
-        
+
         let result = benchmark.run(test_function);
         self.benchmarks.push(result.clone());
         result
@@ -379,14 +390,8 @@ impl PerformanceTestSuite {
         report.push('\n');
 
         for result in &self.benchmarks {
-            report.push_str(&format!(
-                "基准测试: {}\n",
-                result.name
-            ));
-            report.push_str(&format!(
-                "  迭代次数: {}\n",
-                result.iterations
-            ));
+            report.push_str(&format!("基准测试: {}\n", result.name));
+            report.push_str(&format!("  迭代次数: {}\n", result.iterations));
             report.push_str(&format!(
                 "  总耗时: {:.2}ms\n",
                 result.total_duration.as_secs_f64() * 1000.0
@@ -415,7 +420,7 @@ impl PerformanceTestSuite {
                 "  每秒操作数: {:.2}\n",
                 result.operations_per_second()
             ));
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report

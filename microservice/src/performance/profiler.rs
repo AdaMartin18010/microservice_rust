@@ -2,9 +2,9 @@
 //!
 //! 提供性能事件记录和分析功能
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// 性能分析器
@@ -64,10 +64,10 @@ impl PerformanceProfiler {
         ))?;
 
         self.is_running = false;
-        
+
         // 计算统计信息
         self.calculate_stats();
-        
+
         Ok(self.stats.clone())
     }
 
@@ -93,13 +93,19 @@ impl PerformanceProfiler {
     }
 
     /// 记录函数执行时间
-    pub fn record_function_execution(&mut self, function_name: String, duration: Duration) -> ProfilerResult<()> {
+    pub fn record_function_execution(
+        &mut self,
+        function_name: String,
+        duration: Duration,
+    ) -> ProfilerResult<()> {
         let event = ProfilerEvent {
             name: format!("function_{}", function_name),
             category: "function".to_string(),
             event_type: ProfilerEventType::Function,
             timestamp: Some(SystemTime::now()),
-            relative_time: self.start_time.map(|start| Instant::now().duration_since(start)),
+            relative_time: self
+                .start_time
+                .map(|start| Instant::now().duration_since(start)),
             duration: Some(duration),
             metadata: HashMap::new(),
             tags: Vec::new(),
@@ -118,7 +124,9 @@ impl PerformanceProfiler {
             category: "memory".to_string(),
             event_type: ProfilerEventType::Memory,
             timestamp: Some(SystemTime::now()),
-            relative_time: self.start_time.map(|start| Instant::now().duration_since(start)),
+            relative_time: self
+                .start_time
+                .map(|start| Instant::now().duration_since(start)),
             duration: None,
             metadata,
             tags: Vec::new(),
@@ -128,7 +136,13 @@ impl PerformanceProfiler {
     }
 
     /// 记录网络请求
-    pub fn record_network_request(&mut self, url: String, method: String, status_code: u16, duration: Duration) -> ProfilerResult<()> {
+    pub fn record_network_request(
+        &mut self,
+        url: String,
+        method: String,
+        status_code: u16,
+        duration: Duration,
+    ) -> ProfilerResult<()> {
         let mut metadata = HashMap::new();
         metadata.insert("url".to_string(), url);
         metadata.insert("method".to_string(), method);
@@ -139,7 +153,9 @@ impl PerformanceProfiler {
             category: "network".to_string(),
             event_type: ProfilerEventType::Network,
             timestamp: Some(SystemTime::now()),
-            relative_time: self.start_time.map(|start| Instant::now().duration_since(start)),
+            relative_time: self
+                .start_time
+                .map(|start| Instant::now().duration_since(start)),
             duration: Some(duration),
             metadata,
             tags: Vec::new(),
@@ -149,7 +165,12 @@ impl PerformanceProfiler {
     }
 
     /// 记录数据库查询
-    pub fn record_database_query(&mut self, query: String, duration: Duration, rows_affected: Option<usize>) -> ProfilerResult<()> {
+    pub fn record_database_query(
+        &mut self,
+        query: String,
+        duration: Duration,
+        rows_affected: Option<usize>,
+    ) -> ProfilerResult<()> {
         let mut metadata = HashMap::new();
         metadata.insert("query".to_string(), query);
         if let Some(rows) = rows_affected {
@@ -161,7 +182,9 @@ impl PerformanceProfiler {
             category: "database".to_string(),
             event_type: ProfilerEventType::Database,
             timestamp: Some(SystemTime::now()),
-            relative_time: self.start_time.map(|start| Instant::now().duration_since(start)),
+            relative_time: self
+                .start_time
+                .map(|start| Instant::now().duration_since(start)),
             duration: Some(duration),
             metadata,
             tags: Vec::new(),
@@ -189,12 +212,18 @@ impl PerformanceProfiler {
 
     /// 按类别获取事件
     pub fn get_events_by_category(&self, category: &str) -> Vec<&ProfilerEvent> {
-        self.events.iter().filter(|event| event.category == category).collect()
+        self.events
+            .iter()
+            .filter(|event| event.category == category)
+            .collect()
     }
 
     /// 按类型获取事件
     pub fn get_events_by_type(&self, event_type: ProfilerEventType) -> Vec<&ProfilerEvent> {
-        self.events.iter().filter(|event| event.event_type == event_type).collect()
+        self.events
+            .iter()
+            .filter(|event| event.event_type == event_type)
+            .collect()
     }
 
     /// 重置分析器
@@ -234,10 +263,11 @@ impl PerformanceProfiler {
 
         for event in &self.events {
             *category_counts.entry(event.category.clone()).or_insert(0) += 1;
-            
+
             if let Some(duration) = event.duration {
-                category_durations.entry(event.category.clone())
-                    .or_insert_with(Vec::new)
+                category_durations
+                    .entry(event.category.clone())
+                    .or_default()
                     .push(duration);
             }
         }
@@ -245,19 +275,23 @@ impl PerformanceProfiler {
         let mut category_stats = HashMap::new();
         for (category, count) in category_counts {
             let durations = category_durations.remove(&category).unwrap_or_default();
-            category_stats.insert(category, CategoryStats {
-                count,
-                total_duration: durations.iter().sum(),
-                average_duration: if durations.is_empty() {
-                    Duration::ZERO
-                } else {
-                    Duration::from_nanos(
-                        durations.iter().map(|d| d.as_nanos()).sum::<u128>() as u64 / durations.len() as u64
-                    )
+            category_stats.insert(
+                category,
+                CategoryStats {
+                    count,
+                    total_duration: durations.iter().sum(),
+                    average_duration: if durations.is_empty() {
+                        Duration::ZERO
+                    } else {
+                        Duration::from_nanos(
+                            durations.iter().map(|d| d.as_nanos()).sum::<u128>() as u64
+                                / durations.len() as u64,
+                        )
+                    },
+                    min_duration: durations.iter().min().copied().unwrap_or(Duration::ZERO),
+                    max_duration: durations.iter().max().copied().unwrap_or(Duration::ZERO),
                 },
-                min_duration: durations.iter().min().copied().unwrap_or(Duration::ZERO),
-                max_duration: durations.iter().max().copied().unwrap_or(Duration::ZERO),
-            });
+            );
         }
 
         category_stats
@@ -266,9 +300,9 @@ impl PerformanceProfiler {
     /// 计算事件类型统计信息
     fn calculate_event_type_stats(&self) -> HashMap<ProfilerEventType, usize> {
         let mut type_counts: HashMap<ProfilerEventType, usize> = HashMap::new();
-        
+
         for event in &self.events {
-            *type_counts.entry(event.event_type.clone()).or_insert(0) += 1;
+            *type_counts.entry(event.event_type).or_insert(0) += 1;
         }
 
         type_counts
@@ -294,7 +328,8 @@ impl PerformanceProfiler {
                 Duration::ZERO
             } else {
                 Duration::from_nanos(
-                    durations.iter().map(|d| d.as_nanos()).sum::<u128>() as u64 / durations.len() as u64
+                    durations.iter().map(|d| d.as_nanos()).sum::<u128>() as u64
+                        / durations.len() as u64,
                 )
             },
             min_duration: durations.first().copied().unwrap_or(Duration::ZERO),
@@ -324,11 +359,11 @@ impl PerformanceProfiler {
         let mut total_memory = 0;
 
         for event in memory_events {
-            if let Some(memory_str) = event.metadata.get("memory_bytes") {
-                if let Ok(memory_bytes) = memory_str.parse::<usize>() {
-                    memory_usage_values.push(memory_bytes);
-                    total_memory += memory_bytes;
-                }
+            if let Some(memory_str) = event.metadata.get("memory_bytes")
+                && let Ok(memory_bytes) = memory_str.parse::<usize>()
+            {
+                memory_usage_values.push(memory_bytes);
+                total_memory += memory_bytes;
             }
         }
 
@@ -431,25 +466,13 @@ pub enum ProfilerEventType {
 }
 
 /// 性能统计信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProfilerStats {
     pub total_events: usize,
     pub categories: HashMap<String, CategoryStats>,
     pub event_types: HashMap<ProfilerEventType, usize>,
     pub timing_stats: TimingStats,
     pub memory_stats: MemoryStats,
-}
-
-impl Default for ProfilerStats {
-    fn default() -> Self {
-        Self {
-            total_events: 0,
-            categories: HashMap::new(),
-            event_types: HashMap::new(),
-            timing_stats: TimingStats::default(),
-            memory_stats: MemoryStats::default(),
-        }
-    }
 }
 
 /// 类别统计信息
@@ -489,25 +512,13 @@ impl Default for TimingStats {
 }
 
 /// 内存统计信息
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MemoryStats {
     pub total_memory: usize,
     pub average_memory: usize,
     pub min_memory: usize,
     pub max_memory: usize,
     pub memory_samples: usize,
-}
-
-impl Default for MemoryStats {
-    fn default() -> Self {
-        Self {
-            total_memory: 0,
-            average_memory: 0,
-            min_memory: 0,
-            max_memory: 0,
-            memory_samples: 0,
-        }
-    }
 }
 
 /// 性能分析器错误

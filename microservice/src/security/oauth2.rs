@@ -2,11 +2,11 @@
 //!
 //! 提供OAuth2认证和授权功能
 
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use reqwest::Client;
 use url::Url;
 
 /// OAuth2配置
@@ -62,7 +62,11 @@ impl OAuth2Provider {
             token_url,
             user_info_url,
             redirect_uri,
-            scopes: vec!["openid".to_string(), "profile".to_string(), "email".to_string()],
+            scopes: vec![
+                "openid".to_string(),
+                "profile".to_string(),
+                "email".to_string(),
+            ],
             response_type: "code".to_string(),
         }
     }
@@ -76,7 +80,7 @@ impl OAuth2Provider {
             .append_pair("response_type", &self.response_type)
             .append_pair("scope", &self.scopes.join(" "))
             .append_pair("state", state);
-        
+
         Ok(url.to_string())
     }
 
@@ -93,11 +97,7 @@ impl OAuth2Provider {
         params.insert("code", code);
         params.insert("redirect_uri", &self.redirect_uri);
 
-        let response = client
-            .post(&self.token_url)
-            .form(&params)
-            .send()
-            .await?;
+        let response = client.post(&self.token_url).form(&params).send().await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
@@ -186,7 +186,8 @@ impl OAuth2Token {
 
     /// 获取过期时间
     pub fn expires_at(&self) -> Option<SystemTime> {
-        self.expires_in.map(|expires_in| self.created_at + Duration::from_secs(expires_in))
+        self.expires_in
+            .map(|expires_in| self.created_at + Duration::from_secs(expires_in))
     }
 }
 
@@ -266,15 +267,22 @@ impl OAuth2Manager {
 
     /// 获取默认提供商
     pub fn get_default_provider(&self) -> Option<&OAuth2Provider> {
-        self.config.default_provider.as_ref()
+        self.config
+            .default_provider
+            .as_ref()
             .and_then(|name| self.get_provider(name))
     }
 
     /// 生成授权URL
-    pub fn generate_auth_url(&self, provider_name: &str, state: &str) -> Result<String, OAuth2Error> {
-        let provider = self.get_provider(provider_name)
+    pub fn generate_auth_url(
+        &self,
+        provider_name: &str,
+        state: &str,
+    ) -> Result<String, OAuth2Error> {
+        let provider = self
+            .get_provider(provider_name)
             .ok_or_else(|| OAuth2Error::ProviderNotFound(provider_name.to_string()))?;
-        
+
         provider.get_auth_url(state)
     }
 
@@ -284,37 +292,44 @@ impl OAuth2Manager {
         provider_name: &str,
         code: &str,
     ) -> Result<OAuth2Token, OAuth2Error> {
-        let provider = self.get_provider(provider_name)
+        let provider = self
+            .get_provider(provider_name)
             .ok_or_else(|| OAuth2Error::ProviderNotFound(provider_name.to_string()))?;
-        
+
         let token = provider.exchange_code_for_token(code, &self.client).await?;
-        
+
         // 缓存令牌
         let cache_key = format!("{}:{}", provider_name, code);
-        self.token_cache.insert(cache_key, (token.clone(), SystemTime::now()));
-        
+        self.token_cache
+            .insert(cache_key, (token.clone(), SystemTime::now()));
+
         Ok(token)
     }
 
     /// 验证令牌
     pub async fn validate_token(&mut self, token: &str) -> Result<OAuth2User, OAuth2Error> {
         // 检查缓存
-        if let Some((cached_user, cached_time)) = self.user_cache.get(token) {
-            if SystemTime::now().duration_since(*cached_time).unwrap_or_default() < self.config.token_cache_ttl {
-                return Ok(cached_user.clone());
-            }
+        if let Some((cached_user, cached_time)) = self.user_cache.get(token)
+            && SystemTime::now()
+                .duration_since(*cached_time)
+                .unwrap_or_default()
+                < self.config.token_cache_ttl
+        {
+            return Ok(cached_user.clone());
         }
 
         // 从令牌中提取提供商信息（这里简化处理，实际应该从JWT或其他方式获取）
-        let provider = self.get_default_provider()
+        let provider = self
+            .get_default_provider()
             .ok_or_else(|| OAuth2Error::NoDefaultProvider)?;
 
         // 获取用户信息
         let user = provider.get_user_info(token, &self.client).await?;
-        
+
         // 缓存用户信息
-        self.user_cache.insert(token.to_string(), (user.clone(), SystemTime::now()));
-        
+        self.user_cache
+            .insert(token.to_string(), (user.clone(), SystemTime::now()));
+
         Ok(user)
     }
 
@@ -324,7 +339,8 @@ impl OAuth2Manager {
         provider_name: &str,
         refresh_token: &str,
     ) -> Result<OAuth2Token, OAuth2Error> {
-        let provider = self.get_provider(provider_name)
+        let provider = self
+            .get_provider(provider_name)
             .ok_or_else(|| OAuth2Error::ProviderNotFound(provider_name.to_string()))?;
 
         let mut params = HashMap::new();
@@ -333,7 +349,8 @@ impl OAuth2Manager {
         params.insert("client_secret", &provider.client_secret);
         params.insert("refresh_token", refresh_token);
 
-        let response = self.client
+        let response = self
+            .client
             .post(&provider.token_url)
             .form(&params)
             .send()
@@ -350,14 +367,16 @@ impl OAuth2Manager {
 
     /// 撤销令牌
     pub async fn revoke_token(&self, provider_name: &str, token: &str) -> Result<(), OAuth2Error> {
-        let provider = self.get_provider(provider_name)
+        let provider = self
+            .get_provider(provider_name)
             .ok_or_else(|| OAuth2Error::ProviderNotFound(provider_name.to_string()))?;
 
         let mut params = HashMap::new();
         params.insert("token", token);
 
-        let response = self.client
-            .post(&provider.token_url.replace("/token", "/revoke"))
+        let response = self
+            .client
+            .post(provider.token_url.replace("/token", "/revoke"))
             .form(&params)
             .send()
             .await?;
@@ -373,12 +392,12 @@ impl OAuth2Manager {
     /// 清理过期缓存
     pub fn cleanup_expired_cache(&mut self) {
         let now = SystemTime::now();
-        
+
         // 清理过期的令牌缓存
         self.token_cache.retain(|_, (_, cached_time)| {
             now.duration_since(*cached_time).unwrap_or_default() < self.config.token_cache_ttl
         });
-        
+
         // 清理过期的用户缓存
         self.user_cache.retain(|_, (_, cached_time)| {
             now.duration_since(*cached_time).unwrap_or_default() < self.config.token_cache_ttl

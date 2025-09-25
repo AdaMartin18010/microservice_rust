@@ -43,9 +43,10 @@ pub mod middleware;
 pub mod utils;
 
 // Rust 1.90 新特性模块
-pub mod rust_190_features;
 pub mod rust_190_advanced;
 pub mod rust_190_enhanced;
+pub mod rust_190_features;
+pub mod rust_190_optimized;
 
 // 现代微服务框架模块
 pub mod modern_frameworks;
@@ -59,8 +60,8 @@ pub mod ai_ml_advanced;
 pub mod graphql_advanced;
 
 // 高级微服务模式模块
-pub mod advanced_patterns;
 pub mod advanced_microservice_architecture;
+pub mod advanced_patterns;
 
 // 高级安全特性模块
 // pub mod security_advanced; // 暂时注释掉，避免重复定义
@@ -75,8 +76,8 @@ pub mod auto_scaling;
 pub mod multi_cloud;
 
 // 性能优化模块
-pub mod performance_optimization;
 pub mod performance_advanced;
+pub mod performance_optimization;
 
 // 简化微服务模块
 pub mod simple_microservice;
@@ -152,141 +153,115 @@ pub mod prelude {
     pub use crate::messaging::{Kafka, MQTT, NATS, RabbitMQ, Redis};
     pub use crate::middleware::*;
     pub use crate::utils::*;
-    
+
     // Rust 1.90 新特性预导入
     pub use crate::rust_190_features::{
-        AsyncService, AsyncIterator, ServiceRegistry, LoadBalancer, 
-        CircuitBreaker, RetryPolicy, ServiceMonitor, ServiceFactory,
-        ServiceRequest, ServiceResponse, HealthStatus, ServiceInfo,
-        UserService, OrderService, ProductService
+        AsyncIterator, AsyncService, CircuitBreaker, HealthStatus, LoadBalancer, OrderService,
+        ProductService, RetryPolicy, ServiceFactory, ServiceInfo, ServiceMonitor, ServiceRegistry,
+        ServiceRequest, ServiceResponse, UserService,
     };
-    
+
     // Rust 1.90 增强特性预导入
     pub use crate::rust_190_enhanced::{
-        EnhancedMicroService, EnhancedAsyncIterator, EnhancedServiceImpl,
-        EnhancedServiceRequest, EnhancedServiceResponse, EnhancedHealthStatus,
-        ServiceRegistry as EnhancedServiceRegistry, ServiceFactory as EnhancedServiceFactory,
-        ServiceConfig, CircuitBreaker as EnhancedCircuitBreaker, RateLimiter,
-        RequestStream, AdvancedDataProcessor, Priority, ResponseStatus,
-        HealthState, ServiceMetrics, EnhancedServiceError
+        AdvancedDataProcessor, CircuitBreaker as EnhancedCircuitBreaker, EnhancedAsyncIterator,
+        EnhancedHealthStatus, EnhancedMicroService, EnhancedServiceError, EnhancedServiceImpl,
+        EnhancedServiceRequest, EnhancedServiceResponse, HealthState, Priority, RateLimiter,
+        RequestStream, ResponseStatus, ServiceConfig, ServiceFactory as EnhancedServiceFactory,
+        ServiceMetrics, ServiceRegistry as EnhancedServiceRegistry,
     };
-    
+
     // 现代微服务框架预导入
     pub use crate::modern_frameworks::{
-        ModernFramework, FrameworkFactory, FrameworkComparator,
-        HealthStatus as FrameworkHealthStatus, FrameworkMetrics, PerformanceMetrics
+        FrameworkComparator, FrameworkFactory, FrameworkMetrics,
+        HealthStatus as FrameworkHealthStatus, ModernFramework, PerformanceMetrics,
     };
-    
+
     // 高级 AI/ML 预导入
     #[cfg(feature = "with-ai-ml")]
     pub use crate::ai_ml_advanced::{
-        AdvancedAIMLService, AIMLConfig, AIMLRequest, AIMLResponse, AIMLResult,
-        TextTask, ImageTask, AIMLServiceFactory, AIMLMetrics
+        AIMLConfig, AIMLMetrics, AIMLRequest, AIMLResponse, AIMLResult, AIMLServiceFactory,
+        AdvancedAIMLService, ImageTask, TextTask,
     };
-    
+
     // 高级 GraphQL 预导入
     #[cfg(feature = "with-graphql")]
     pub use crate::graphql_advanced::{
-        GraphQLService, GraphQLConfig, GraphQLServiceFactory, GraphQLMetrics,
-        User, Product, Order, UserInput, UserUpdateInput, SearchInput,
-        DataStore, DataLoader, QueryRoot, MutationRoot, SubscriptionRoot
+        DataLoader, DataStore, GraphQLConfig, GraphQLMetrics, GraphQLService,
+        GraphQLServiceFactory, MutationRoot, Order, Product, QueryRoot, SearchInput,
+        SubscriptionRoot, User, UserInput, UserUpdateInput,
     };
-    
+
     // 高级微服务模式预导入
     pub use crate::advanced_patterns::{
-        AdvancedPatternsService, AdvancedPatternsServiceFactory,
-        Command, Query, DomainEvent, AggregateRoot, CommandHandler, QueryHandler, EventHandler,
-        CreateUserCommand, UpdateUserCommand, GetUserQuery, SearchUsersQuery,
-        UserCreatedEvent, UserUpdatedEvent, UserAggregate, UserReadModel,
-        UserCommandHandler, UserQueryHandler, UserReadModelStore,
-        EventStore, SagaCoordinator, SagaStep, OrderSaga
+        AdvancedPatternsService, AdvancedPatternsServiceFactory, AggregateRoot, Command,
+        CommandHandler, CreateUserCommand, DomainEvent, EventHandler, EventStore, GetUserQuery,
+        OrderSaga, Query, QueryHandler, SagaCoordinator, SagaStep, SearchUsersQuery,
+        UpdateUserCommand, UserAggregate, UserCommandHandler, UserCreatedEvent, UserQueryHandler,
+        UserReadModel, UserReadModelStore, UserUpdatedEvent,
     };
-    
+
     // 高级微服务架构预导入（使用别名以避免与 advanced_patterns 冲突）
     pub use crate::advanced_microservice_architecture::{
-        ArchitectureError as ArchError,
-        DomainEvent as ArchDomainEvent,
-        Command as ArchCommand,
-        Query as ArchQuery,
-        AggregateRoot as ArchAggregateRoot,
-        CommandHandler as ArchCommandHandler,
-        QueryHandler as ArchQueryHandler,
-        EventHandler as ArchEventHandler,
-        EventStore as ArchEventStore,
+        AggregateRoot as ArchAggregateRoot, ArchitectureError as ArchError,
+        AutoScaling as ArchAutoScaling, ChaosEngineering as ArchChaosEngineering,
+        ChaosExperiment as ArchChaosExperiment, Command as ArchCommand,
+        CommandHandler as ArchCommandHandler, CpuScaler as ArchCpuScaler,
+        DomainEvent as ArchDomainEvent, EventHandler as ArchEventHandler,
+        EventStore as ArchEventStore, ExperimentResults as ArchExperimentResults,
+        ExperimentStatus as ArchExperimentStatus, FaultInjector as ArchFaultInjector,
+        FaultType as ArchFaultType, GetUserQuery as ArchGetUserQuery,
         InMemoryEventStore as ArchInMemoryEventStore,
-        UserAggregate as ArchUserAggregate,
-        UserCommand as ArchUserCommand,
-        UserEvent as ArchUserEvent,
+        LatencyFaultInjector as ArchLatencyFaultInjector, MetricValue as ArchMetricValue,
+        OrderSaga as ArchOrderSaga, Query as ArchQuery, QueryHandler as ArchQueryHandler,
+        Saga as ArchSaga, SagaCoordinator as ArchSagaCoordinator, SagaStep as ArchSagaStep,
+        SagaStepStatus as ArchSagaStepStatus, Scaler as ArchScaler,
+        ScalingAction as ArchScalingAction, ScalingActionType as ArchScalingActionType,
+        ScalingEvent as ArchScalingEvent, ScalingType as ArchScalingType, Severity as ArchSeverity,
+        SystemStability as ArchSystemStability, UserAggregate as ArchUserAggregate,
+        UserCommand as ArchUserCommand, UserCommandHandler as ArchUserCommandHandler,
+        UserEvent as ArchUserEvent, UserQueryHandler as ArchUserQueryHandler,
         UserStatus as ArchUserStatus,
-        UserCommandHandler as ArchUserCommandHandler,
-        UserQueryHandler as ArchUserQueryHandler,
-        GetUserQuery as ArchGetUserQuery,
-        SagaCoordinator as ArchSagaCoordinator,
-        Saga as ArchSaga,
-        SagaStep as ArchSagaStep,
-        SagaStepStatus as ArchSagaStepStatus,
-        OrderSaga as ArchOrderSaga,
-        ChaosEngineering as ArchChaosEngineering,
-        FaultInjector as ArchFaultInjector,
-        FaultType as ArchFaultType,
-        ChaosExperiment as ArchChaosExperiment,
-        Severity as ArchSeverity,
-        ExperimentStatus as ArchExperimentStatus,
-        ExperimentResults as ArchExperimentResults,
-        SystemStability as ArchSystemStability,
-        LatencyFaultInjector as ArchLatencyFaultInjector,
-        AutoScaling as ArchAutoScaling,
-        Scaler as ArchScaler,
-        ScalingType as ArchScalingType,
-        ScalingAction as ArchScalingAction,
-        ScalingActionType as ArchScalingActionType,
-        ScalingEvent as ArchScalingEvent,
-        MetricValue as ArchMetricValue,
-        CpuScaler as ArchCpuScaler
     };
-    
+
     // 高级安全特性预导入
     pub use crate::security_advanced::{
-        AdvancedSecurityService, AdvancedSecurityManager, SecurityConfig,
-        User, Role, Permission, AccessToken, JwtPayload, SecurityPolicy, SecurityEvent,
-        Certificate, SecurityRule, EventType, EventResult, JwtPayload as JwtClaims,
-        ZeroTrustPolicy, UserIdentity, AdvancedJWTClaims, PermissionLevel, ResourceType,
-        AccessControlPolicy, AccessEffect, SecurityAuditEvent, AuditResult
+        AccessControlPolicy, AccessEffect, AccessToken, AdvancedJWTClaims, AdvancedSecurityManager,
+        AdvancedSecurityService, AuditResult, Certificate, EventResult, EventType, JwtPayload,
+        JwtPayload as JwtClaims, Permission, PermissionLevel, ResourceType, Role,
+        SecurityAuditEvent, SecurityConfig, SecurityEvent, SecurityPolicy, SecurityRule, User,
+        UserIdentity, ZeroTrustPolicy,
     };
-    
+
     // 混沌工程预导入
     pub use crate::chaos_engineering::{
-        AdvancedChaosEngineeringService, ChaosEngineeringServiceFactory, ChaosConfig,
-        FaultInjector, ChaosMonkey, ResilienceTester, ChaosExperiment, ExperimentResults,
-        FaultType, Severity, ExperimentStatus, SystemStability, ChaosMetrics,
-        ResilienceTestResults
+        AdvancedChaosEngineeringService, ChaosConfig, ChaosEngineeringServiceFactory,
+        ChaosExperiment, ChaosMetrics, ChaosMonkey, ExperimentResults, ExperimentStatus,
+        FaultInjector, FaultType, ResilienceTestResults, ResilienceTester, Severity,
+        SystemStability,
     };
-    
+
     // 自动扩缩容预导入
     pub use crate::auto_scaling::{
-        AutoScalingService, AutoScalingServiceFactory, ScalingConfig,
-        HorizontalScaler, VerticalScaler, PredictiveScaler, ScalingEvent, ScalingAction,
-        ScalingType, ResourceMetrics, PredictionDataPoint, CustomMetric, MetricType,
-        ScalingStats, PredictionModel
+        AutoScalingService, AutoScalingServiceFactory, CustomMetric, HorizontalScaler, MetricType,
+        PredictionDataPoint, PredictionModel, PredictiveScaler, ResourceMetrics, ScalingAction,
+        ScalingConfig, ScalingEvent, ScalingStats, ScalingType, VerticalScaler,
     };
-    
+
     // 多云支持预导入
     pub use crate::multi_cloud::{
-        MultiCloudManager, MultiCloudServiceFactory, CloudConfig, CloudProvider,
-        AwsService, AzureService, GcpService, AlibabaCloudService,
-        CloudResource, CloudResourceType, ResourceStatus, CloudCost,
-        MultiCloudCostSummary
+        AlibabaCloudService, AwsService, AzureService, CloudConfig, CloudCost, CloudProvider,
+        CloudResource, CloudResourceType, GcpService, MultiCloudCostSummary, MultiCloudManager,
+        MultiCloudServiceFactory, ResourceStatus,
     };
-    
+
     // 性能优化预导入
     pub use crate::performance_optimization::{
-        PerformanceOptimizationManager, PerformanceOptimizationFactory,
-        PerformanceBenchmarker, MemoryOptimizer, ConcurrencyOptimizer,
-        BenchmarkConfig, BenchmarkResult, MemoryOptimizationConfig, MemoryStats,
-        ConcurrencyOptimizationConfig, ConcurrencyStats, PerformanceMetric,
-        PerformanceMetricType, ComprehensiveOptimizationResult, OptimizationResult,
-        MemoryOptimizationResult, ConcurrencyOptimizationResult, PerformanceRecommendation,
-        RecommendationPriority
+        BenchmarkConfig, BenchmarkResult, ComprehensiveOptimizationResult,
+        ConcurrencyOptimizationConfig, ConcurrencyOptimizationResult, ConcurrencyOptimizer,
+        ConcurrencyStats, MemoryOptimizationConfig, MemoryOptimizationResult, MemoryOptimizer,
+        MemoryStats, OptimizationResult, PerformanceBenchmarker, PerformanceMetric,
+        PerformanceMetricType, PerformanceOptimizationFactory, PerformanceOptimizationManager,
+        PerformanceRecommendation, RecommendationPriority,
     };
 
     // 重新导出常用crate

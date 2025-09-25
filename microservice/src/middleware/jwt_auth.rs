@@ -2,11 +2,11 @@
 //!
 //! 提供基于JWT的认证和授权功能
 
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::{error, info, warn, instrument};
-use serde::{Deserialize, Serialize};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use tracing::{error, info, instrument, warn};
 
 /// JWT配置
 #[derive(Debug, Clone)]
@@ -64,13 +64,13 @@ impl JwtConfig {
 /// JWT声明
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,    // 主题（通常是用户ID）
-    pub exp: u64,       // 过期时间
-    pub iat: u64,       // 签发时间
-    pub iss: Option<String>, // 签发者
-    pub aud: Option<String>, // 受众
-    pub roles: Vec<String>,  // 用户角色
-    pub permissions: Vec<String>, // 用户权限
+    pub sub: String,                                // 主题（通常是用户ID）
+    pub exp: u64,                                   // 过期时间
+    pub iat: u64,                                   // 签发时间
+    pub iss: Option<String>,                        // 签发者
+    pub aud: Option<String>,                        // 受众
+    pub roles: Vec<String>,                         // 用户角色
+    pub permissions: Vec<String>,                   // 用户权限
     pub custom: HashMap<String, serde_json::Value>, // 自定义声明
 }
 
@@ -149,7 +149,9 @@ impl Claims {
 
     /// 检查是否有任意一个权限
     pub fn has_any_permission(&self, permissions: &[&str]) -> bool {
-        permissions.iter().any(|&permission| self.has_permission(permission))
+        permissions
+            .iter()
+            .any(|&permission| self.has_permission(permission))
     }
 }
 
@@ -242,32 +244,28 @@ impl JwtAuthMiddleware {
     #[instrument(skip(self))]
     pub fn validate_token(&self, token: &str) -> Result<Claims, JwtError> {
         let decoding_key = DecodingKey::from_secret(self.config.secret.as_ref());
-        
+
         let mut validation = Validation::new(self.config.algorithm);
         validation.leeway = self.config.leeway;
 
-        if self.validate_expiration {
-            validation.validate_exp = true;
-        } else {
-            validation.validate_exp = false;
+        validation.validate_exp = self.validate_expiration;
+
+        if self.validate_issuer
+            && let Some(ref issuer) = self.config.issuer
+        {
+            validation.iss = Some(std::collections::HashSet::from([issuer.clone()]));
         }
 
-        if self.validate_issuer {
-            if let Some(ref issuer) = self.config.issuer {
-                validation.iss = Some(std::collections::HashSet::from([issuer.clone()]));
-            }
-        }
-
-        if self.validate_audience {
-            if let Some(ref audience) = self.config.audience {
-                validation.aud = Some(std::collections::HashSet::from([audience.clone()]));
-            }
+        if self.validate_audience
+            && let Some(ref audience) = self.config.audience
+        {
+            validation.aud = Some(std::collections::HashSet::from([audience.clone()]));
         }
 
         match decode::<Claims>(token, &decoding_key, &validation) {
             Ok(token_data) => {
                 let claims = token_data.claims;
-                
+
                 if self.validate_expiration && claims.is_expired() {
                     return Err(JwtError::TokenExpired);
                 }
@@ -289,27 +287,44 @@ impl JwtAuthMiddleware {
 
     /// 检查路径是否需要跳过认证
     pub fn should_skip_path(&self, path: &str) -> bool {
-        self.skip_paths.iter().any(|skip_path| path.starts_with(skip_path))
+        self.skip_paths
+            .iter()
+            .any(|skip_path| path.starts_with(skip_path))
     }
 
     /// 验证用户角色
     pub fn validate_roles(&self, claims: &Claims) -> Result<(), JwtError> {
-        if let Some(ref required_roles) = self.required_roles {
-            if !claims.has_any_role(required_roles.iter().map(|s| s.as_str()).collect::<Vec<_>>().as_slice()) {
-                warn!("用户 {} 缺少必需角色: {:?}", claims.sub, required_roles);
-                return Err(JwtError::InsufficientRoles);
-            }
+        if let Some(ref required_roles) = self.required_roles
+            && !claims.has_any_role(
+                required_roles
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
+        {
+            warn!("用户 {} 缺少必需角色: {:?}", claims.sub, required_roles);
+            return Err(JwtError::InsufficientRoles);
         }
         Ok(())
     }
 
     /// 验证用户权限
     pub fn validate_permissions(&self, claims: &Claims) -> Result<(), JwtError> {
-        if let Some(ref required_permissions) = self.required_permissions {
-            if !claims.has_any_permission(required_permissions.iter().map(|s| s.as_str()).collect::<Vec<_>>().as_slice()) {
-                warn!("用户 {} 缺少必需权限: {:?}", claims.sub, required_permissions);
-                return Err(JwtError::InsufficientPermissions);
-            }
+        if let Some(ref required_permissions) = self.required_permissions
+            && !claims.has_any_permission(
+                required_permissions
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
+        {
+            warn!(
+                "用户 {} 缺少必需权限: {:?}",
+                claims.sub, required_permissions
+            );
+            return Err(JwtError::InsufficientPermissions);
         }
         Ok(())
     }
@@ -357,22 +372,22 @@ impl JwtAuthMiddleware {
 pub enum JwtError {
     #[error("令牌生成失败: {0}")]
     TokenGeneration(String),
-    
+
     #[error("令牌验证失败: {0}")]
     ValidationError(String),
-    
+
     #[error("令牌已过期")]
     TokenExpired,
-    
+
     #[error("无效的签名")]
     InvalidSignature,
-    
+
     #[error("无效的令牌")]
     InvalidToken,
-    
+
     #[error("角色不足")]
     InsufficientRoles,
-    
+
     #[error("权限不足")]
     InsufficientPermissions,
 }
@@ -426,7 +441,11 @@ impl From<Claims> for JwtUser {
         Self {
             id: claims.sub.clone(),
             username: claims.sub,
-            email: claims.custom.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            email: claims
+                .custom
+                .get("email")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
             roles: claims.roles,
             permissions: claims.permissions,
             metadata: claims.custom,
@@ -454,10 +473,16 @@ impl JwtAuthManager {
         let claims = Claims::new(user.id.clone())
             .with_roles(user.roles.clone())
             .with_permissions(user.permissions.clone())
-            .add_custom_claim("username".to_string(), serde_json::Value::String(user.username.clone()));
+            .add_custom_claim(
+                "username".to_string(),
+                serde_json::Value::String(user.username.clone()),
+            );
 
         let claims = if let Some(ref email) = user.email {
-            claims.add_custom_claim("email".to_string(), serde_json::Value::String(email.clone()))
+            claims.add_custom_claim(
+                "email".to_string(),
+                serde_json::Value::String(email.clone()),
+            )
         } else {
             claims
         };
@@ -483,10 +508,10 @@ impl JwtAuthManager {
     /// 验证请求
     pub async fn authenticate_request(&self, path: &str, token: Option<&str>) -> AuthResult {
         // 检查令牌是否被撤销
-        if let Some(t) = token {
-            if self.is_token_revoked(t) {
-                return AuthResult::Unauthorized("令牌已被撤销".to_string());
-            }
+        if let Some(t) = token
+            && self.is_token_revoked(t)
+        {
+            return AuthResult::Unauthorized("令牌已被撤销".to_string());
         }
 
         self.auth_middleware.authenticate_request(path, token).await
@@ -533,8 +558,7 @@ mod tests {
         assert!(!middleware.should_skip_path("/private/data"));
 
         // 测试令牌生成和验证
-        let claims = Claims::new("test-user".to_string())
-            .with_roles(vec!["admin".to_string()]);
+        let claims = Claims::new("test-user".to_string()).with_roles(vec!["admin".to_string()]);
 
         let token = middleware.generate_token(&claims).unwrap();
         let validated_claims = middleware.validate_token(&token).unwrap();
@@ -558,13 +582,15 @@ mod tests {
         };
 
         let token = manager.generate_user_token(&user).unwrap();
-        
+
         // 测试令牌撤销
         manager.revoke_token(&token);
         assert!(manager.is_token_revoked(&token));
 
         // 测试认证请求
-        let result = manager.authenticate_request("/api/data", Some(&token)).await;
+        let result = manager
+            .authenticate_request("/api/data", Some(&token))
+            .await;
         assert!(!result.is_authorized());
     }
 }

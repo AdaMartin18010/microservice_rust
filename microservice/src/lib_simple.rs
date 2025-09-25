@@ -187,9 +187,7 @@ impl MiddlewareBuilder {
         self
     }
 
-    pub fn build(self) {
-        
-    }
+    pub fn build(self) {}
 }
 
 /// CORS配置

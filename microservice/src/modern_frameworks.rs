@@ -7,23 +7,23 @@
 //! - fusen-rs: 跨语言微服务框架
 //! - Spring-rs: Spring Boot 风格的 Rust 框架
 
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 /// 现代框架统一接口
 pub trait ModernFramework {
     /// 启动服务
     fn start(&self, port: u16) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>;
-    
+
     /// 停止服务
     fn stop(&self) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>;
-    
+
     /// 健康检查
     fn health_check(&self) -> Pin<Box<dyn Future<Output = Result<HealthStatus>> + Send>>;
-    
+
     /// 获取指标
     fn get_metrics(&self) -> Pin<Box<dyn Future<Output = Result<FrameworkMetrics>> + Send>>;
 }
@@ -50,9 +50,12 @@ pub struct FrameworkMetrics {
 pub mod poem_advanced {
     use super::*;
     use poem::{
-        get, handler, listener::TcpListener, middleware::Tracing, post, put, delete,
-        EndpointExt, Route, Server, web::{Json, Path, Query},
-        FromRequest, IntoResponse, Request, Response,
+        EndpointExt, FromRequest, IntoResponse, Request, Response, Route, Server, delete, get,
+        handler,
+        listener::TcpListener,
+        middleware::Tracing,
+        post, put,
+        web::{Json, Path, Query},
     };
     use std::sync::Arc;
     use tokio::sync::RwLock;
@@ -78,14 +81,19 @@ pub mod poem_advanced {
                 .at("/health", get(health_check_handler))
                 .at("/metrics", get(metrics_handler))
                 .at("/users", get(get_users).post(create_user))
-                .at("/users/:id", get(get_user).put(update_user).delete(delete_user))
+                .at(
+                    "/users/:id",
+                    get(get_user).put(update_user).delete(delete_user),
+                )
                 .at("/api/v1/users", get(get_users_v1))
                 .at("/api/v1/users/:id", get(get_user_v1))
                 .with(poem::middleware::Tracing)
                 .with(poem::middleware::Cors::new())
                 .with(poem::middleware::Compression::new())
                 .with(poem::middleware::RequestId::new())
-                .with(poem::middleware::Timeout::new(std::time::Duration::from_secs(30)));
+                .with(poem::middleware::Timeout::new(
+                    std::time::Duration::from_secs(30),
+                ));
 
             Self {
                 app,
@@ -160,18 +168,24 @@ pub mod poem_advanced {
     impl UserStore {
         pub fn new() -> Self {
             let mut users = HashMap::new();
-            users.insert("1".to_string(), User {
-                id: "1".to_string(),
-                name: "Alice".to_string(),
-                email: "alice@example.com".to_string(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            });
-            users.insert("2".to_string(), User {
-                id: "2".to_string(),
-                name: "Bob".to_string(),
-                email: "bob@example.com".to_string(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            });
+            users.insert(
+                "1".to_string(),
+                User {
+                    id: "1".to_string(),
+                    name: "Alice".to_string(),
+                    email: "alice@example.com".to_string(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
+            users.insert(
+                "2".to_string(),
+                User {
+                    id: "2".to_string(),
+                    name: "Bob".to_string(),
+                    email: "bob@example.com".to_string(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
 
             Self {
                 users: Arc::new(RwLock::new(users)),
@@ -300,8 +314,8 @@ pub mod poem_advanced {
 pub mod salvo_advanced {
     use super::*;
     use salvo::{
+        oapi::{self, ToResponse, ToSchema, extract::*, openapi::OpenApi},
         prelude::*,
-        oapi::{self, extract::*, openapi::OpenApi, ToSchema, ToResponse},
     };
     use std::sync::Arc;
     use tokio::sync::RwLock;
@@ -324,41 +338,28 @@ pub mod salvo_advanced {
             }));
 
             let router = Router::new()
-                .push(
-                    Router::with_path("/health")
-                        .get(health_check_handler)
-                )
-                .push(
-                    Router::with_path("/metrics")
-                        .get(metrics_handler)
-                )
-                .push(
-                    Router::with_path("/users")
-                        .get(get_users)
-                        .post(create_user)
-                )
+                .push(Router::with_path("/health").get(health_check_handler))
+                .push(Router::with_path("/metrics").get(metrics_handler))
+                .push(Router::with_path("/users").get(get_users).post(create_user))
                 .push(
                     Router::with_path("/users/<id>")
                         .get(get_user)
                         .put(update_user)
-                        .delete(delete_user)
+                        .delete(delete_user),
                 )
-                .push(
-                    Router::with_path("/api/v1/users")
-                        .get(get_users_v1)
-                )
-                .push(
-                    Router::with_path("/api/v1/users/<id>")
-                        .get(get_user_v1)
-                )
+                .push(Router::with_path("/api/v1/users").get(get_users_v1))
+                .push(Router::with_path("/api/v1/users/<id>").get(get_user_v1))
                 .hoop(salvo::logging::Logger::new())
-                .hoop(salvo::cors::Cors::new()
-                    .allow_origin("*")
-                    .allow_methods(vec!["GET", "POST", "PUT", "DELETE"])
-                    .allow_headers(vec!["*"])
+                .hoop(
+                    salvo::cors::Cors::new()
+                        .allow_origin("*")
+                        .allow_methods(vec!["GET", "POST", "PUT", "DELETE"])
+                        .allow_headers(vec!["*"]),
                 )
                 .hoop(salvo::compression::Compression::new())
-                .hoop(salvo::timeout::Timeout::new(std::time::Duration::from_secs(30)));
+                .hoop(salvo::timeout::Timeout::new(
+                    std::time::Duration::from_secs(30),
+                ));
 
             Self {
                 router,
@@ -369,17 +370,20 @@ pub mod salvo_advanced {
 
         pub fn with_openapi(mut self) -> Self {
             let mut openapi = OpenApi::new("Salvo API", "1.0.0");
-            
-            self.router = self.router
+
+            self.router = self
+                .router
                 .push(
-                    Router::with_path("/openapi")
-                        .get(oapi::swagger_ui::SwaggerUi::new("/openapi/openapi.json").into_handler(&mut openapi))
+                    Router::with_path("/openapi").get(
+                        oapi::swagger_ui::SwaggerUi::new("/openapi/openapi.json")
+                            .into_handler(&mut openapi),
+                    ),
                 )
                 .push(
                     Router::with_path("/openapi/openapi.json")
-                        .get(oapi::swagger_ui::OpenApiHandler::new(openapi))
+                        .get(oapi::swagger_ui::OpenApiHandler::new(openapi)),
                 );
-            
+
             self
         }
     }
@@ -440,18 +444,24 @@ pub mod salvo_advanced {
     impl UserStore {
         pub fn new() -> Self {
             let mut users = HashMap::new();
-            users.insert("1".to_string(), User {
-                id: "1".to_string(),
-                name: "Alice".to_string(),
-                email: "alice@example.com".to_string(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            });
-            users.insert("2".to_string(), User {
-                id: "2".to_string(),
-                name: "Bob".to_string(),
-                email: "bob@example.com".to_string(),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            });
+            users.insert(
+                "1".to_string(),
+                User {
+                    id: "1".to_string(),
+                    name: "Alice".to_string(),
+                    email: "alice@example.com".to_string(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
+            users.insert(
+                "2".to_string(),
+                User {
+                    id: "2".to_string(),
+                    name: "Bob".to_string(),
+                    email: "bob@example.com".to_string(),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
 
             Self {
                 users: Arc::new(RwLock::new(users)),
@@ -538,7 +548,9 @@ pub mod salvo_advanced {
     /// 更新用户
     #[endpoint]
     async fn update_user(id: PathParam<String>, user: JsonBody<User>) -> impl IntoResponse {
-        let user = USER_STORE.update_user(&id.into_inner(), user.into_inner()).await;
+        let user = USER_STORE
+            .update_user(&id.into_inner(), user.into_inner())
+            .await;
         Json(user)
     }
 
@@ -834,33 +846,44 @@ impl FrameworkComparator {
     pub fn compare_performance() -> HashMap<String, PerformanceMetrics> {
         [
             #[cfg(feature = "with-poem")]
-            ("Poem".to_string(), PerformanceMetrics {
-                throughput_rps: 15000,
-                latency_p50_ms: 0.5,
-                latency_p95_ms: 2.0,
-                latency_p99_ms: 5.0,
-                memory_usage_mb: 128.5,
-                cpu_usage_percent: 15.2,
-            }),
+            (
+                "Poem".to_string(),
+                PerformanceMetrics {
+                    throughput_rps: 15000,
+                    latency_p50_ms: 0.5,
+                    latency_p95_ms: 2.0,
+                    latency_p99_ms: 5.0,
+                    memory_usage_mb: 128.5,
+                    cpu_usage_percent: 15.2,
+                },
+            ),
             #[cfg(feature = "with-salvo")]
-            ("Salvo".to_string(), PerformanceMetrics {
-                throughput_rps: 12000,
-                latency_p50_ms: 0.8,
-                latency_p95_ms: 3.0,
-                latency_p99_ms: 8.0,
-                memory_usage_mb: 256.8,
-                cpu_usage_percent: 18.5,
-            }),
+            (
+                "Salvo".to_string(),
+                PerformanceMetrics {
+                    throughput_rps: 12000,
+                    latency_p50_ms: 0.8,
+                    latency_p95_ms: 3.0,
+                    latency_p99_ms: 8.0,
+                    memory_usage_mb: 256.8,
+                    cpu_usage_percent: 18.5,
+                },
+            ),
             #[cfg(feature = "with-volo")]
-            ("Volo".to_string(), PerformanceMetrics {
-                throughput_rps: 20000,
-                latency_p50_ms: 0.3,
-                latency_p95_ms: 1.5,
-                latency_p99_ms: 4.0,
-                memory_usage_mb: 192.3,
-                cpu_usage_percent: 12.8,
-            }),
-        ].into_iter().collect()
+            (
+                "Volo".to_string(),
+                PerformanceMetrics {
+                    throughput_rps: 20000,
+                    latency_p50_ms: 0.3,
+                    latency_p95_ms: 1.5,
+                    latency_p99_ms: 4.0,
+                    memory_usage_mb: 192.3,
+                    cpu_usage_percent: 12.8,
+                },
+            ),
+        ]
+        .into_iter()
+        .collect()
     }
 }
 
@@ -882,10 +905,10 @@ mod tests {
     async fn test_framework_factory() {
         let available_frameworks = FrameworkFactory::get_available_frameworks();
         assert!(!available_frameworks.is_empty());
-        
+
         #[cfg(feature = "with-poem")]
         assert!(available_frameworks.contains(&"Poem".to_string()));
-        
+
         #[cfg(feature = "with-salvo")]
         assert!(available_frameworks.contains(&"Salvo".to_string()));
     }
@@ -894,7 +917,7 @@ mod tests {
     fn test_framework_comparison() {
         let performance_metrics = FrameworkComparator::compare_performance();
         assert!(!performance_metrics.is_empty());
-        
+
         for (framework, metrics) in performance_metrics {
             assert!(metrics.throughput_rps > 0);
             assert!(metrics.latency_p50_ms > 0.0);

@@ -2,13 +2,13 @@
 //!
 //! 展示服务发现、负载均衡、熔断器和流量管理功能
 
+use microservice::service_mesh::{
+    CircuitBreakerConfig, DiscoveryConfig, LoadBalancerConfig, LoadBalancingStrategy,
+    RegistryConfig, RetryPolicy, ServiceInstance, ServiceMeshConfig, ServiceMeshManager,
+    TimeoutPolicy, TrafficConfig, TrafficPolicy,
+};
 use std::time::Duration;
 use tokio::time::sleep;
-use microservice::service_mesh::{
-    ServiceMeshManager, ServiceMeshConfig, ServiceInstance,
-    DiscoveryConfig, RegistryConfig, LoadBalancerConfig, LoadBalancingStrategy,
-    CircuitBreakerConfig, TrafficConfig, TrafficPolicy, RetryPolicy, TimeoutPolicy,
-};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 创建服务网格配置
     let service_mesh_config = create_service_mesh_config();
-    
+
     // 创建服务网格管理器
     let mut service_mesh = ServiceMeshManager::new(service_mesh_config);
 
@@ -116,7 +116,9 @@ fn create_service_mesh_config() -> ServiceMeshConfig {
 }
 
 /// 演示服务发现
-async fn demo_service_discovery(service_mesh: &mut ServiceMeshManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_service_discovery(
+    service_mesh: &mut ServiceMeshManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔍 服务发现演示");
     println!("================");
 
@@ -165,9 +167,14 @@ async fn demo_service_discovery(service_mesh: &mut ServiceMeshManager) -> Result
     let user_health = service_mesh.get_service_health("user-service").await?;
     println!("🏥 用户服务健康状态:");
     for health in &user_health {
-        println!("  - {}: {} (响应时间: {:?})", 
-            health.service_id, 
-            if health.healthy { "健康" } else { "不健康" },
+        println!(
+            "  - {}: {} (响应时间: {:?})",
+            health.service_id,
+            if health.healthy {
+                "健康"
+            } else {
+                "不健康"
+            },
             health.response_time
         );
     }
@@ -176,7 +183,9 @@ async fn demo_service_discovery(service_mesh: &mut ServiceMeshManager) -> Result
 }
 
 /// 演示负载均衡
-async fn demo_load_balancing(service_mesh: &mut ServiceMeshManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_load_balancing(
+    service_mesh: &mut ServiceMeshManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n⚖️ 负载均衡演示");
     println!("================");
 
@@ -207,7 +216,9 @@ async fn demo_load_balancing(service_mesh: &mut ServiceMeshManager) -> Result<()
 }
 
 /// 演示熔断器
-async fn demo_circuit_breaker(service_mesh: &mut ServiceMeshManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_circuit_breaker(
+    service_mesh: &mut ServiceMeshManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔧 熔断器演示");
     println!("==============");
 
@@ -228,13 +239,15 @@ async fn demo_circuit_breaker(service_mesh: &mut ServiceMeshManager) -> Result<(
 
     // 成功的调用
     for _i in 1..=3 {
-        let result = service_mesh.call_service("user-service", |instance| {
-            let instance_id = instance.id.clone();
-            async move {
-                println!("   调用 {} (成功)", instance_id);
-                Ok(format!("响应来自 {}", instance_id))
-            }
-        }).await;
+        let result = service_mesh
+            .call_service("user-service", |instance| {
+                let instance_id = instance.id.clone();
+                async move {
+                    println!("   调用 {} (成功)", instance_id);
+                    Ok(format!("响应来自 {}", instance_id))
+                }
+            })
+            .await;
 
         match result {
             Ok(response) => println!("   ✅ 成功: {}", response),
@@ -246,13 +259,15 @@ async fn demo_circuit_breaker(service_mesh: &mut ServiceMeshManager) -> Result<(
     // 模拟失败的调用
     println!("💥 模拟失败调用:");
     for _i in 1..=5 {
-        let result: Result<String, microservice::service_mesh::ServiceMeshError> = service_mesh.call_service("user-service", |instance| {
-            let instance_id = instance.id.clone();
-            async move {
-                println!("   调用 {} (失败)", instance_id);
-                Err(microservice::service_mesh::ServiceMeshError::ServiceTimeout)
-            }
-        }).await;
+        let result: Result<String, microservice::service_mesh::ServiceMeshError> = service_mesh
+            .call_service("user-service", |instance| {
+                let instance_id = instance.id.clone();
+                async move {
+                    println!("   调用 {} (失败)", instance_id);
+                    Err(microservice::service_mesh::ServiceMeshError::ServiceTimeout)
+                }
+            })
+            .await;
 
         match result {
             Ok(response) => println!("   ✅ 成功: {}", response),
@@ -274,7 +289,9 @@ async fn demo_circuit_breaker(service_mesh: &mut ServiceMeshManager) -> Result<(
 }
 
 /// 演示流量管理
-async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Result<(), Box<dyn std::error::Error>> {
+async fn demo_traffic_management(
+    service_mesh: &mut ServiceMeshManager,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🚦 流量管理演示");
     println!("================");
 
@@ -286,10 +303,7 @@ async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Resul
             max_delay: Duration::from_secs(2),
             backoff_multiplier: 2.0,
             jitter: true,
-            retryable_errors: vec![
-                "timeout".to_string(),
-                "connection_error".to_string(),
-            ],
+            retryable_errors: vec!["timeout".to_string(), "connection_error".to_string()],
         },
         timeout: TimeoutPolicy {
             timeout: Duration::from_secs(10),
@@ -301,7 +315,9 @@ async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Resul
         circuit_breaker: None,
     };
 
-    service_mesh.traffic_manager.add_policy("user-service".to_string(), traffic_policy);
+    service_mesh
+        .traffic_manager
+        .add_policy("user-service".to_string(), traffic_policy);
 
     println!("✅ 已添加流量策略");
 
@@ -309,17 +325,20 @@ async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Resul
     println!("🔄 重试机制演示:");
     for i in 1..=3 {
         let attempt = i;
-        let result = service_mesh.traffic_manager.apply_policy("user-service", move || {
-            Box::pin(async move {
-                if attempt == 1 {
-                    println!("   尝试 1: 模拟失败");
-                    Err(microservice::service_mesh::traffic_management::TrafficError::Timeout)
-                } else {
-                    println!("   尝试 {}: 成功", attempt);
-                    Ok(format!("成功响应 {}", attempt))
-                }
+        let result = service_mesh
+            .traffic_manager
+            .apply_policy("user-service", move || {
+                Box::pin(async move {
+                    if attempt == 1 {
+                        println!("   尝试 1: 模拟失败");
+                        Err(microservice::service_mesh::traffic_management::TrafficError::Timeout)
+                    } else {
+                        println!("   尝试 {}: 成功", attempt);
+                        Ok(format!("成功响应 {}", attempt))
+                    }
+                })
             })
-        }).await;
+            .await;
 
         match result {
             Ok(response) => {
@@ -335,14 +354,20 @@ async fn demo_traffic_management(service_mesh: &mut ServiceMeshManager) -> Resul
     // 演示限流检查
     println!("🚦 限流检查演示:");
     for i in 1..=5 {
-        match service_mesh.traffic_manager.check_rate_limit("user-service", &format!("client-{}", i)) {
+        match service_mesh
+            .traffic_manager
+            .check_rate_limit("user-service", &format!("client-{}", i))
+        {
             Ok(_) => println!("  请求 {} -> 允许", i),
             Err(e) => println!("  请求 {} -> 被限流: {}", i, e),
         }
     }
 
     println!("📊 流量策略统计:");
-    println!("  策略数量: {}", service_mesh.traffic_manager.get_policy_count());
+    println!(
+        "  策略数量: {}",
+        service_mesh.traffic_manager.get_policy_count()
+    );
 
     Ok(())
 }

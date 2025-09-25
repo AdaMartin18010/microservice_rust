@@ -1,0 +1,24 @@
+{
+  "spec": "SagaVerification",
+  "constants": {
+    "Steps": {"step1", "step2", "step3"},
+    "MaxSteps": 3
+  },
+  "invariants": [
+    "TypeOK",
+    "SagaCompletion",
+    "NoPartialCompletion",
+    "CompensationOrder",
+    "StepExecutedOnce"
+  ],
+  "temporal": [
+    "EventuallyRecovers"
+  ],
+  "length": 50,
+  "tuning": {
+    "search": {
+      "strategy": "bfs",
+      "maxDepth": 100
+    }
+  }
+}

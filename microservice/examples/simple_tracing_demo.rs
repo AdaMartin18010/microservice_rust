@@ -5,16 +5,12 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use microservice::{
-    middleware::{
-        DistributedTracingMiddleware, DistributedTracingConfig, TracingLogLevel,
-    },
-    opentelemetry::{
-        OpenTelemetryConfig,
-    },
     error::Result,
+    middleware::{DistributedTracingConfig, DistributedTracingMiddleware, TracingLogLevel},
+    opentelemetry::OpenTelemetryConfig,
 };
 
 /// 简单分布式追踪演示
@@ -51,9 +47,7 @@ impl SimpleTracingDemo {
         // 创建分布式追踪中间件
         let tracing_middleware = DistributedTracingMiddleware::new(tracing_config);
 
-        Ok(Self {
-            tracing_middleware,
-        })
+        Ok(Self { tracing_middleware })
     }
 
     /// 启动简单分布式追踪演示
@@ -81,10 +75,10 @@ impl SimpleTracingDemo {
         let span = self.tracing_middleware.start_span("basic_operation", None);
         if let Some(span) = span {
             info!("开始基本操作跨度");
-            
+
             // 模拟一些工作
             sleep(Duration::from_millis(100)).await;
-            
+
             // 完成跨度
             self.tracing_middleware.finish_span(span, None);
             info!("基本操作跨度完成");
@@ -99,11 +93,16 @@ impl SimpleTracingDemo {
 
         // 模拟HTTP请求头
         let mut headers = HashMap::new();
-        headers.insert("user-agent".to_string(), "simple-tracing-demo/1.0.0".to_string());
+        headers.insert(
+            "user-agent".to_string(),
+            "simple-tracing-demo/1.0.0".to_string(),
+        );
 
         // 开始HTTP请求追踪
-        let (context, span) = self.tracing_middleware.trace_http_request("GET", "/api/users", &headers);
-        
+        let (context, span) =
+            self.tracing_middleware
+                .trace_http_request("GET", "/api/users", &headers);
+
         if let Some(context) = context {
             info!("HTTP请求追踪上下文:");
             info!("  Trace ID: {}", context.trace_id);
@@ -114,7 +113,8 @@ impl SimpleTracingDemo {
         sleep(Duration::from_millis(50)).await;
 
         // 完成HTTP请求追踪
-        self.tracing_middleware.trace_http_response(span, 200, Duration::from_millis(50), None);
+        self.tracing_middleware
+            .trace_http_response(span, 200, Duration::from_millis(50), None);
 
         info!("HTTP请求追踪完成");
         Ok(())

@@ -1,25 +1,25 @@
 #![cfg(feature = "with-graphql")]
 //! GraphQL 微服务演示
-//! 
+//!
 //! 本示例展示了如何使用 GraphQL 构建现代微服务API
 //! 包括：Schema定义、Resolver实现、订阅支持、数据加载器等
 
 use async_graphql::{
-    Context, EmptyMutation, EmptySubscription, Object, Schema, SimpleObject, ID,
-    Result as GraphQLResult, InputObject, Enum, Subscription, async_stream,
+    Context, EmptyMutation, EmptySubscription, Enum, ID, InputObject, Object,
+    Result as GraphQLResult, Schema, SimpleObject, Subscription, async_stream,
 };
 use async_graphql_poem::{GraphQLRequest, GraphQLResponse};
+use chrono::{DateTime, Utc};
 use poem::{
-    handler, listener::TcpListener, middleware::Tracing, post, EndpointExt, Route, Server,
+    EndpointExt, Route, Server, handler, listener::TcpListener, middleware::Tracing, post,
     web::Json,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// 用户数据结构
 #[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
@@ -125,11 +125,11 @@ impl DataStore {
         let mut users = HashMap::new();
         let mut posts = HashMap::new();
         let mut comments = HashMap::new();
-        
+
         // 创建示例数据
         let user1_id = "user-1".to_string();
         let user2_id = "user-2".to_string();
-        
+
         let user1 = User {
             id: ID::from(&user1_id),
             name: "Alice".to_string(),
@@ -144,7 +144,7 @@ impl DataStore {
                 website: Some("https://alice.dev".to_string()),
             }),
         };
-        
+
         let user2 = User {
             id: ID::from(&user2_id),
             name: "Bob".to_string(),
@@ -159,10 +159,10 @@ impl DataStore {
                 website: Some("https://bob.dev".to_string()),
             }),
         };
-        
+
         users.insert(user1_id.clone(), user1);
         users.insert(user2_id.clone(), user2);
-        
+
         let post1_id = "post-1".to_string();
         let post1 = Post {
             id: ID::from(&post1_id),
@@ -174,7 +174,7 @@ impl DataStore {
             tags: vec!["graphql".to_string(), "api".to_string()],
             comments: vec![],
         };
-        
+
         let post2_id = "post-2".to_string();
         let post2 = Post {
             id: ID::from(&post2_id),
@@ -186,10 +186,10 @@ impl DataStore {
             tags: vec!["rust".to_string(), "microservices".to_string()],
             comments: vec![],
         };
-        
+
         posts.insert(post1_id.clone(), post1);
         posts.insert(post2_id.clone(), post2);
-        
+
         let comment1_id = "comment-1".to_string();
         let comment1 = Comment {
             id: ID::from(&comment1_id),
@@ -198,9 +198,9 @@ impl DataStore {
             post_id: ID::from(&post1_id),
             created_at: Utc::now(),
         };
-        
+
         comments.insert(comment1_id, comment1);
-        
+
         Self {
             users: Arc::new(RwLock::new(users)),
             posts: Arc::new(RwLock::new(posts)),
@@ -221,7 +221,7 @@ impl QueryRoot {
         let users = store.users.read().await;
         Ok(users.values().cloned().collect())
     }
-    
+
     /// 根据ID获取用户
     async fn user(&self, ctx: &Context<'_>, id: ID) -> GraphQLResult<Option<User>> {
         info!("GraphQL: 查询用户 {}", id);
@@ -229,7 +229,7 @@ impl QueryRoot {
         let users = store.users.read().await;
         Ok(users.get(&id.to_string()).cloned())
     }
-    
+
     /// 搜索用户
     async fn search_users(
         &self,
@@ -239,18 +239,16 @@ impl QueryRoot {
         info!("GraphQL: 搜索用户 - {}", input.query);
         let store = ctx.data::<DataStore>()?;
         let users = store.users.read().await;
-        
+
         let results: Vec<User> = users
             .values()
-            .filter(|user| {
-                user.name.contains(&input.query) || user.email.contains(&input.query)
-            })
+            .filter(|user| user.name.contains(&input.query) || user.email.contains(&input.query))
             .cloned()
             .collect();
-        
+
         Ok(results)
     }
-    
+
     /// 获取所有文章
     async fn posts(&self, ctx: &Context<'_>) -> GraphQLResult<Vec<Post>> {
         info!("GraphQL: 查询所有文章");
@@ -258,7 +256,7 @@ impl QueryRoot {
         let posts = store.posts.read().await;
         Ok(posts.values().cloned().collect())
     }
-    
+
     /// 根据ID获取文章
     async fn post(&self, ctx: &Context<'_>, id: ID) -> GraphQLResult<Option<Post>> {
         info!("GraphQL: 查询文章 {}", id);
@@ -266,22 +264,22 @@ impl QueryRoot {
         let posts = store.posts.read().await;
         Ok(posts.get(&id.to_string()).cloned())
     }
-    
+
     /// 根据作者ID获取文章
     async fn posts_by_author(&self, ctx: &Context<'_>, author_id: ID) -> GraphQLResult<Vec<Post>> {
         info!("GraphQL: 查询作者 {} 的文章", author_id);
         let store = ctx.data::<DataStore>()?;
         let posts = store.posts.read().await;
-        
+
         let results: Vec<Post> = posts
             .values()
             .filter(|post| post.author_id == author_id)
             .cloned()
             .collect();
-        
+
         Ok(results)
     }
-    
+
     /// 搜索文章
     async fn search_posts(
         &self,
@@ -291,18 +289,16 @@ impl QueryRoot {
         info!("GraphQL: 搜索文章 - {}", input.query);
         let store = ctx.data::<DataStore>()?;
         let posts = store.posts.read().await;
-        
+
         let results: Vec<Post> = posts
             .values()
-            .filter(|post| {
-                post.title.contains(&input.query) || post.content.contains(&input.query)
-            })
+            .filter(|post| post.title.contains(&input.query) || post.content.contains(&input.query))
             .cloned()
             .collect();
-        
+
         Ok(results)
     }
-    
+
     /// 获取所有评论
     async fn comments(&self, ctx: &Context<'_>) -> GraphQLResult<Vec<Comment>> {
         info!("GraphQL: 查询所有评论");
@@ -310,28 +306,32 @@ impl QueryRoot {
         let comments = store.comments.read().await;
         Ok(comments.values().cloned().collect())
     }
-    
+
     /// 根据文章ID获取评论
-    async fn comments_by_post(&self, ctx: &Context<'_>, post_id: ID) -> GraphQLResult<Vec<Comment>> {
+    async fn comments_by_post(
+        &self,
+        ctx: &Context<'_>,
+        post_id: ID,
+    ) -> GraphQLResult<Vec<Comment>> {
         info!("GraphQL: 查询文章 {} 的评论", post_id);
         let store = ctx.data::<DataStore>()?;
         let comments = store.comments.read().await;
-        
+
         let results: Vec<Comment> = comments
             .values()
             .filter(|comment| comment.post_id == post_id)
             .cloned()
             .collect();
-        
+
         Ok(results)
     }
-    
+
     /// 健康检查
     async fn health(&self) -> GraphQLResult<String> {
         info!("GraphQL: 健康检查");
         Ok("healthy".to_string())
     }
-    
+
     /// 版本信息
     async fn version(&self) -> GraphQLResult<String> {
         info!("GraphQL: 版本查询");
@@ -345,14 +345,10 @@ pub struct MutationRoot;
 #[Object]
 impl MutationRoot {
     /// 创建用户
-    async fn create_user(
-        &self,
-        ctx: &Context<'_>,
-        input: CreateUserInput,
-    ) -> GraphQLResult<User> {
+    async fn create_user(&self, ctx: &Context<'_>, input: CreateUserInput) -> GraphQLResult<User> {
         info!("GraphQL: 创建用户 - {}", input.name);
         let store = ctx.data::<DataStore>()?;
-        
+
         let user_id = Uuid::new_v4().to_string();
         let user = User {
             id: ID::from(&user_id),
@@ -363,13 +359,13 @@ impl MutationRoot {
             posts: vec![],
             profile: None,
         };
-        
+
         let mut users = store.users.write().await;
         users.insert(user_id, user.clone());
-        
+
         Ok(user)
     }
-    
+
     /// 更新用户
     async fn update_user(
         &self,
@@ -379,7 +375,7 @@ impl MutationRoot {
     ) -> GraphQLResult<Option<User>> {
         info!("GraphQL: 更新用户 {}", id);
         let store = ctx.data::<DataStore>()?;
-        
+
         let mut users = store.users.write().await;
         if let Some(user) = users.get_mut(&id.to_string()) {
             user.name = input.name;
@@ -390,25 +386,21 @@ impl MutationRoot {
             Ok(None)
         }
     }
-    
+
     /// 删除用户
     async fn delete_user(&self, ctx: &Context<'_>, id: ID) -> GraphQLResult<bool> {
         info!("GraphQL: 删除用户 {}", id);
         let store = ctx.data::<DataStore>()?;
-        
+
         let mut users = store.users.write().await;
         Ok(users.remove(&id.to_string()).is_some())
     }
-    
+
     /// 创建文章
-    async fn create_post(
-        &self,
-        ctx: &Context<'_>,
-        input: CreatePostInput,
-    ) -> GraphQLResult<Post> {
+    async fn create_post(&self, ctx: &Context<'_>, input: CreatePostInput) -> GraphQLResult<Post> {
         info!("GraphQL: 创建文章 - {}", input.title);
         let store = ctx.data::<DataStore>()?;
-        
+
         let post_id = Uuid::new_v4().to_string();
         let post = Post {
             id: ID::from(&post_id),
@@ -420,13 +412,13 @@ impl MutationRoot {
             tags: input.tags,
             comments: vec![],
         };
-        
+
         let mut posts = store.posts.write().await;
         posts.insert(post_id, post.clone());
-        
+
         Ok(post)
     }
-    
+
     /// 创建评论
     async fn create_comment(
         &self,
@@ -435,7 +427,7 @@ impl MutationRoot {
     ) -> GraphQLResult<Comment> {
         info!("GraphQL: 创建评论");
         let store = ctx.data::<DataStore>()?;
-        
+
         let comment_id = Uuid::new_v4().to_string();
         let comment = Comment {
             id: ID::from(&comment_id),
@@ -444,10 +436,10 @@ impl MutationRoot {
             post_id: input.post_id,
             created_at: Utc::now(),
         };
-        
+
         let mut comments = store.comments.write().await;
         comments.insert(comment_id, comment.clone());
-        
+
         Ok(comment)
     }
 }
@@ -476,7 +468,7 @@ impl SubscriptionRoot {
             }
         }
     }
-    
+
     /// 文章创建订阅
     async fn post_created(&self) -> impl async_stream::Stream<Item = Post> {
         async_stream::stream! {
@@ -521,8 +513,14 @@ fn create_routes() -> Route {
     let schema = create_schema();
     Route::new()
         .at("/graphql", post(graphql_handler))
-        .at("/graphiql", async_graphql_poem::GraphiQLEndpoint::new("/graphql"))
-        .at("/playground", async_graphql_poem::GraphQLPlaygroundEndpoint::new("/graphql"))
+        .at(
+            "/graphiql",
+            async_graphql_poem::GraphiQLEndpoint::new("/graphql"),
+        )
+        .at(
+            "/playground",
+            async_graphql_poem::GraphQLPlaygroundEndpoint::new("/graphql"),
+        )
         .data(schema)
         .with(Tracing)
 }
@@ -532,17 +530,17 @@ fn create_routes() -> Route {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 初始化日志
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 GraphQL 微服务演示");
     println!("================================");
-    
+
     // 创建路由
     let app = create_routes();
-    
+
     // 启动服务器
     let listener = TcpListener::bind("127.0.0.1:3003");
     let server = Server::new(listener);
-    
+
     println!("📡 服务器启动在 http://127.0.0.1:3003");
     println!("📋 可用的端点:");
     println!("  POST   /graphql           - GraphQL API");
@@ -575,23 +573,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    }}");
     println!("  }}");
     println!();
-    
+
     // 运行服务器
     server.run(app).await?;
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_create_schema() {
         let schema = create_schema();
         assert!(!schema.sdl().is_empty());
     }
-    
+
     #[tokio::test]
     async fn test_query_users() {
         let schema = create_schema();
@@ -604,11 +602,11 @@ mod tests {
                 }
             }
         "#;
-        
+
         let result = schema.execute(query).await;
         assert!(result.errors.is_empty());
     }
-    
+
     #[tokio::test]
     async fn test_mutation_create_user() {
         let schema = create_schema();
@@ -625,7 +623,7 @@ mod tests {
                 }
             }
         "#;
-        
+
         let result = schema.execute(mutation).await;
         assert!(result.errors.is_empty());
     }

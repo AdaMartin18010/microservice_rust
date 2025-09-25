@@ -1,14 +1,14 @@
 //! Volo 微服务框架演示（简化版本）
-//! 
+//!
 //! 本示例展示了如何使用 Volo 框架的概念构建微服务
 //! 注意：这是一个简化版本，不依赖外部 volo 库
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
-use anyhow::Result;
 
 /// 用户数据结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,7 +99,7 @@ pub struct VoloStyleService {
 impl VoloStyleService {
     pub fn new() -> Self {
         let mut users = HashMap::new();
-        
+
         // 添加一些示例用户
         let sample_users = vec![
             User {
@@ -138,7 +138,7 @@ impl VoloStyleService {
     /// 获取用户
     pub async fn get_user(&self, request: GetUserRequest) -> Result<GetUserResponse> {
         info!("获取用户: {}", request.user_id);
-        
+
         let users = self.users.read().await;
         match users.get(&request.user_id) {
             Some(user) => Ok(GetUserResponse {
@@ -157,7 +157,7 @@ impl VoloStyleService {
     /// 创建用户
     pub async fn create_user(&self, request: CreateUserRequest) -> Result<CreateUserResponse> {
         info!("创建用户: {}", request.name);
-        
+
         if request.name.is_empty() || request.email.is_empty() {
             return Ok(CreateUserResponse {
                 user: None,
@@ -179,7 +179,7 @@ impl VoloStyleService {
         };
 
         self.users.write().await.insert(id, user.clone());
-        
+
         Ok(CreateUserResponse {
             user: Some(user),
             success: true,
@@ -190,7 +190,7 @@ impl VoloStyleService {
     /// 更新用户
     pub async fn update_user(&self, request: UpdateUserRequest) -> Result<UpdateUserResponse> {
         info!("更新用户: {}", request.user_id);
-        
+
         let mut users = self.users.write().await;
         match users.get_mut(&request.user_id) {
             Some(user) => {
@@ -203,7 +203,7 @@ impl VoloStyleService {
                 if let Some(age) = request.age {
                     user.age = age;
                 }
-                
+
                 Ok(UpdateUserResponse {
                     user: Some(user.clone()),
                     success: true,
@@ -221,7 +221,7 @@ impl VoloStyleService {
     /// 删除用户
     pub async fn delete_user(&self, request: DeleteUserRequest) -> Result<DeleteUserResponse> {
         info!("删除用户: {}", request.user_id);
-        
+
         let mut users = self.users.write().await;
         match users.remove(&request.user_id) {
             Some(_) => Ok(DeleteUserResponse {
@@ -238,10 +238,10 @@ impl VoloStyleService {
     /// 列出所有用户
     pub async fn list_users(&self) -> Result<ListUsersResponse> {
         info!("列出所有用户");
-        
+
         let users = self.users.read().await;
         let user_list: Vec<User> = users.values().cloned().collect();
-        
+
         Ok(ListUsersResponse {
             users: user_list.clone(),
             total: user_list.len() as u64,
@@ -271,21 +271,21 @@ impl MiddlewareHandler {
     {
         // 模拟上下文中间件
         info!("🔧 执行上下文中间件");
-        
+
         // 模拟日志中间件
         info!("📝 执行日志中间件");
-        
+
         // 模拟指标中间件
         info!("📊 执行指标中间件");
-        
+
         // 模拟错误处理中间件
         info!("🛡️  执行错误处理中间件");
-        
+
         info!("执行操作: {}", operation_name);
-        
+
         // 模拟响应处理中间件
         info!("📤 执行响应处理中间件");
-        
+
         Ok(R::default())
     }
 
@@ -336,7 +336,7 @@ impl VoloClient {
     /// 模拟客户端调用
     pub async fn call_service(&self, operation: &str, request: &str) -> Result<String> {
         info!("🚀 客户端调用服务: {}", operation);
-        
+
         match operation {
             "get_user" => {
                 let req: GetUserRequest = serde_json::from_str(request)?;
@@ -365,7 +365,7 @@ impl VoloClient {
             _ => Ok(serde_json::to_string_pretty(&serde_json::json!({
                 "success": false,
                 "message": "不支持的操作"
-            }))?)
+            }))?),
         }
     }
 }
@@ -375,23 +375,25 @@ impl VoloClient {
 async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 Volo 风格微服务演示");
     println!("================================");
-    
+
     let client = VoloClient::new();
-    
+
     // 演示列出所有用户
     println!("\n👥 列出所有用户:");
     let response = client.call_service("list_users", "{}").await?;
     println!("list_users: {}", response);
-    
+
     // 演示获取特定用户
     println!("\n👤 获取特定用户:");
     let get_request = serde_json::json!({"user_id": 1});
-    let response = client.call_service("get_user", &get_request.to_string()).await?;
+    let response = client
+        .call_service("get_user", &get_request.to_string())
+        .await?;
     println!("get_user: {}", response);
-    
+
     // 演示创建用户
     println!("\n➕ 创建用户:");
     let create_request = serde_json::json!({
@@ -399,9 +401,11 @@ async fn main() -> Result<()> {
         "email": "zhaoliu@example.com",
         "age": 35
     });
-    let response = client.call_service("create_user", &create_request.to_string()).await?;
+    let response = client
+        .call_service("create_user", &create_request.to_string())
+        .await?;
     println!("create_user: {}", response);
-    
+
     // 演示更新用户
     println!("\n✏️  更新用户:");
     let update_request = serde_json::json!({
@@ -409,32 +413,40 @@ async fn main() -> Result<()> {
         "name": "张三（更新）",
         "age": 26
     });
-    let response = client.call_service("update_user", &update_request.to_string()).await?;
+    let response = client
+        .call_service("update_user", &update_request.to_string())
+        .await?;
     println!("update_user: {}", response);
-    
+
     // 演示获取更新后的用户
     println!("\n👤 获取更新后的用户:");
     let get_request = serde_json::json!({"user_id": 1});
-    let response = client.call_service("get_user", &get_request.to_string()).await?;
+    let response = client
+        .call_service("get_user", &get_request.to_string())
+        .await?;
     println!("get_user: {}", response);
-    
+
     // 演示删除用户
     println!("\n🗑️  删除用户:");
     let delete_request = serde_json::json!({"user_id": 2});
-    let response = client.call_service("delete_user", &delete_request.to_string()).await?;
+    let response = client
+        .call_service("delete_user", &delete_request.to_string())
+        .await?;
     println!("delete_user: {}", response);
-    
+
     // 演示获取更新后的用户列表
     println!("\n👥 获取更新后的用户列表:");
     let response = client.call_service("list_users", "{}").await?;
     println!("list_users: {}", response);
-    
+
     // 演示错误处理
     println!("\n❌ 演示错误处理:");
     let get_request = serde_json::json!({"user_id": 999});
-    let response = client.call_service("get_user", &get_request.to_string()).await?;
+    let response = client
+        .call_service("get_user", &get_request.to_string())
+        .await?;
     println!("get_user (不存在的用户): {}", response);
-    
+
     println!("\n✅ Volo 风格微服务演示完成！");
     println!();
     println!("🎯 主要特性:");
@@ -453,7 +465,7 @@ async fn main() -> Result<()> {
     println!("- 自动代码生成");
     println!("- 服务发现和负载均衡");
     println!("- 链路追踪");
-    
+
     Ok(())
 }
 
@@ -465,7 +477,7 @@ mod tests {
     async fn test_get_user() {
         let service = VoloStyleService::new();
         let request = GetUserRequest { user_id: 1 };
-        
+
         let response = service.get_user(request).await.unwrap();
         assert!(response.success);
         assert_eq!(response.user.unwrap().name, "张三");
@@ -479,7 +491,7 @@ mod tests {
             email: "test@example.com".to_string(),
             age: 25,
         };
-        
+
         let response = service.create_user(request).await.unwrap();
         assert!(response.success);
         assert_eq!(response.user.unwrap().name, "测试用户");
@@ -494,7 +506,7 @@ mod tests {
             email: None,
             age: Some(26),
         };
-        
+
         let response = service.update_user(request).await.unwrap();
         assert!(response.success);
         assert_eq!(response.user.unwrap().name, "更新的用户");
@@ -504,10 +516,10 @@ mod tests {
     async fn test_delete_user() {
         let service = VoloStyleService::new();
         let request = DeleteUserRequest { user_id: 3 };
-        
+
         let response = service.delete_user(request).await.unwrap();
         assert!(response.success);
-        
+
         // 验证用户已删除
         let get_request = GetUserRequest { user_id: 3 };
         let response = service.get_user(get_request).await.unwrap();
@@ -517,7 +529,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_users() {
         let service = VoloStyleService::new();
-        
+
         let response = service.list_users().await.unwrap();
         assert!(response.success);
         assert_eq!(response.total, 3);
@@ -527,7 +539,7 @@ mod tests {
     async fn test_middleware_integration() {
         let middleware_handler = MiddlewareHandler::new();
         let request = GetUserRequest { user_id: 1 };
-        
+
         let response = middleware_handler.get_user(request).await.unwrap();
         assert!(response.success);
         assert_eq!(response.user.unwrap().name, "张三");

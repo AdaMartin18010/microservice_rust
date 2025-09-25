@@ -2,13 +2,13 @@
 //!
 //! 提供HTTP响应缓存、内存缓存和分布式缓存功能
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, instrument};
-use serde::{Deserialize, Serialize};
+use tracing::{debug, info, instrument, warn};
 
 /// 缓存配置
 #[derive(Debug, Clone)]
@@ -81,7 +81,7 @@ impl CacheItem {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Self {
             key,
             value,
@@ -168,7 +168,12 @@ impl MemoryCache {
 
     /// 设置缓存项
     #[instrument(skip(self, value))]
-    pub async fn set(&self, key: String, value: Vec<u8>, ttl: Option<Duration>) -> Result<(), CacheError> {
+    pub async fn set(
+        &self,
+        key: String,
+        value: Vec<u8>,
+        ttl: Option<Duration>,
+    ) -> Result<(), CacheError> {
         let ttl = ttl.unwrap_or(self.config.default_ttl);
         let mut item = CacheItem::new(key.clone(), value, ttl);
 
@@ -187,7 +192,7 @@ impl MemoryCache {
 
         items.insert(key.clone(), item);
         stats.sets += 1;
-        
+
         debug!("缓存项已设置: {}", key);
         Ok(())
     }
@@ -216,7 +221,7 @@ impl MemoryCache {
         let count = items.len();
         items.clear();
         stats.clears += 1;
-        
+
         info!("缓存已清空，删除了 {} 个项", count);
     }
 
@@ -227,20 +232,23 @@ impl MemoryCache {
 
     /// 压缩缓存项
     async fn compress_item(&self, mut item: CacheItem) -> Result<CacheItem, CacheError> {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
         use std::io::Write;
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&item.value)
+        encoder
+            .write_all(&item.value)
             .map_err(|e| CacheError::CompressionError(e.to_string()))?;
-        
-        let compressed_data = encoder.finish()
+
+        let compressed_data = encoder
+            .finish()
             .map_err(|e| CacheError::CompressionError(e.to_string()))?;
 
         item.value = compressed_data;
         item.compressed = true;
-        item.headers.insert("Content-Encoding".to_string(), "gzip".to_string());
+        item.headers
+            .insert("Content-Encoding".to_string(), "gzip".to_string());
 
         Ok(item)
     }
@@ -344,7 +352,8 @@ impl HttpCacheMiddleware {
         if self.cache_by_query && !request.query_params.is_empty() {
             let mut query_keys: Vec<String> = request.query_params.keys().cloned().collect();
             query_keys.sort();
-            let query_string = query_keys.into_iter()
+            let query_string = query_keys
+                .into_iter()
                 .map(|k| format!("{}={}", k, request.query_params[&k]))
                 .collect::<Vec<_>>()
                 .join("&");
@@ -373,19 +382,19 @@ impl HttpCacheMiddleware {
         }
 
         // 检查缓存控制头
-        if let Some(ref cache_control) = response.headers.get("Cache-Control") {
-            if cache_control.contains("no-cache") || cache_control.contains("no-store") {
-                return false;
-            }
+        if let Some(cache_control) = response.headers.get("Cache-Control")
+            && (cache_control.contains("no-cache") || cache_control.contains("no-store"))
+        {
+            return false;
         }
 
         // 检查内容类型
-        if let Some(ref content_type) = response.headers.get("Content-Type") {
-            if content_type.starts_with("application/json") || 
-               content_type.starts_with("text/") ||
-               content_type.starts_with("image/") {
-                return true;
-            }
+        if let Some(content_type) = response.headers.get("Content-Type")
+            && (content_type.starts_with("application/json")
+                || content_type.starts_with("text/")
+                || content_type.starts_with("image/"))
+        {
+            return true;
         }
 
         false
@@ -394,22 +403,22 @@ impl HttpCacheMiddleware {
     /// 计算缓存TTL
     pub fn calculate_ttl(&self, response: &HttpCacheResponse) -> Duration {
         // 检查Cache-Control头中的max-age
-        if let Some(ref cache_control) = response.headers.get("Cache-Control") {
-            if let Some(max_age) = self.extract_max_age(cache_control) {
-                return Duration::from_secs(max_age);
-            }
+        if let Some(cache_control) = response.headers.get("Cache-Control")
+            && let Some(max_age) = self.extract_max_age(cache_control)
+        {
+            return Duration::from_secs(max_age);
         }
 
         // 检查Expires头
-        if let Some(ref expires) = response.headers.get("Expires") {
-            if let Ok(expires_time) = self.parse_expires_header(expires) {
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
-                if expires_time > now {
-                    return Duration::from_secs(expires_time - now);
-                }
+        if let Some(expires) = response.headers.get("Expires")
+            && let Ok(expires_time) = self.parse_expires_header(expires)
+        {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            if expires_time > now {
+                return Duration::from_secs(expires_time - now);
             }
         }
 
@@ -420,10 +429,10 @@ impl HttpCacheMiddleware {
     fn extract_max_age(&self, cache_control: &str) -> Option<u64> {
         for part in cache_control.split(',') {
             let part = part.trim();
-            if part.starts_with("max-age=") {
-                if let Ok(age) = part[8..].parse::<u64>() {
-                    return Some(age);
-                }
+            if part.starts_with("max-age=")
+                && let Ok(age) = part[8..].parse::<u64>()
+            {
+                return Some(age);
             }
         }
         None
@@ -535,7 +544,12 @@ impl CacheManager {
     }
 
     /// 设置缓存项
-    pub async fn set(&self, key: String, value: Vec<u8>, ttl: Option<Duration>) -> Result<(), CacheError> {
+    pub async fn set(
+        &self,
+        key: String,
+        value: Vec<u8>,
+        ttl: Option<Duration>,
+    ) -> Result<(), CacheError> {
         if let Some(ref cache) = self.memory_cache {
             cache.set(key, value, ttl).await
         } else {
@@ -544,12 +558,15 @@ impl CacheManager {
     }
 
     /// 处理HTTP缓存请求
-    pub async fn handle_http_request(&self, request: HttpCacheRequest) -> Option<HttpCacheResponse> {
+    pub async fn handle_http_request(
+        &self,
+        request: HttpCacheRequest,
+    ) -> Option<HttpCacheResponse> {
         let cache_key = self.http_cache.generate_cache_key(&request);
-        
+
         if let Some(cache_item) = self.get(&cache_key).await {
             debug!("HTTP缓存命中: {}", cache_key);
-            
+
             return Some(HttpCacheResponse {
                 status_code: 200,
                 headers: cache_item.headers.clone(),
@@ -563,18 +580,25 @@ impl CacheManager {
     }
 
     /// 缓存HTTP响应
-    pub async fn cache_http_response(&self, request: HttpCacheRequest, response: HttpCacheResponse) {
+    pub async fn cache_http_response(
+        &self,
+        request: HttpCacheRequest,
+        response: HttpCacheResponse,
+    ) {
         if self.http_cache.should_cache_response(&response) {
             let cache_key = self.http_cache.generate_cache_key(&request);
             let ttl = self.http_cache.calculate_ttl(&response);
-            
+
             let mut headers = response.headers.clone();
             headers.insert("X-Cache".to_string(), "MISS".to_string());
-            
-            let cache_item = CacheItem::new(cache_key.clone(), response.body, ttl)
-                .with_headers(headers);
 
-            if let Err(e) = self.set(cache_key.clone(), cache_item.value, Some(ttl)).await {
+            let cache_item =
+                CacheItem::new(cache_key.clone(), response.body, ttl).with_headers(headers);
+
+            if let Err(e) = self
+                .set(cache_key.clone(), cache_item.value, Some(ttl))
+                .await
+            {
                 warn!("缓存HTTP响应失败: {} - {}", cache_key, e);
             } else {
                 debug!("HTTP响应已缓存: {}", cache_key);
@@ -604,16 +628,16 @@ impl CacheManager {
 pub enum CacheError {
     #[error("缓存压缩失败: {0}")]
     CompressionError(String),
-    
+
     #[error("缓存序列化失败: {0}")]
     SerializationError(String),
-    
+
     #[error("缓存反序列化失败: {0}")]
     DeserializationError(String),
-    
+
     #[error("缓存大小超限")]
     SizeLimitExceeded,
-    
+
     #[error("缓存键无效: {0}")]
     InvalidKey(String),
 }
@@ -636,8 +660,12 @@ mod tests {
 
     #[test]
     fn test_cache_item() {
-        let item = CacheItem::new("test-key".to_string(), b"test-value".to_vec(), Duration::from_secs(60));
-        
+        let item = CacheItem::new(
+            "test-key".to_string(),
+            b"test-value".to_vec(),
+            Duration::from_secs(60),
+        );
+
         assert_eq!(item.key, "test-key");
         assert_eq!(item.value, b"test-value");
         assert!(!item.is_expired());
@@ -652,10 +680,10 @@ mod tests {
         // 测试设置和获取
         let key = "test-key".to_string();
         let value = b"test-value".to_vec();
-        
+
         cache.set(key.clone(), value.clone(), None).await.unwrap();
         let retrieved = cache.get(&key).await;
-        
+
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().value, value);
 
@@ -687,10 +715,10 @@ mod tests {
 
         let key = "test-key".to_string();
         let value = b"test-value".to_vec();
-        
+
         manager.set(key.clone(), value.clone(), None).await.unwrap();
         let retrieved = manager.get(&key).await;
-        
+
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().value, value);
     }

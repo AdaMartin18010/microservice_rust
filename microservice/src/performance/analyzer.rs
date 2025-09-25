@@ -2,10 +2,10 @@
 //!
 //! 提供性能数据分析和报告生成功能
 
+use crate::performance::profiler::{CategoryStats, MemoryStats, ProfilerStats, TimingStats};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
-use crate::performance::profiler::{ProfilerStats, CategoryStats, TimingStats, MemoryStats};
 
 /// 性能分析器
 #[derive(Debug)]
@@ -72,7 +72,9 @@ impl PerformanceAnalyzer {
                 stats.average_duration.as_secs_f64() * 1000.0,
                 self.thresholds.slow_operation_threshold.as_secs_f64() * 1000.0
             ));
-            analysis.suggestions.push("考虑优化算法或减少I/O操作".to_string());
+            analysis
+                .suggestions
+                .push("考虑优化算法或减少I/O操作".to_string());
         }
 
         // 分析最大执行时间
@@ -82,13 +84,19 @@ impl PerformanceAnalyzer {
                 stats.max_duration.as_secs_f64() * 1000.0,
                 self.thresholds.very_slow_operation_threshold.as_secs_f64() * 1000.0
             ));
-            analysis.suggestions.push("检查是否存在阻塞操作或死锁".to_string());
+            analysis
+                .suggestions
+                .push("检查是否存在阻塞操作或死锁".to_string());
         }
 
         // 分析执行时间差异
         if stats.max_duration > stats.min_duration * 10 {
-            analysis.issues.push("执行时间差异过大，可能存在性能不一致的问题".to_string());
-            analysis.suggestions.push("优化数据结构和算法，确保性能一致性".to_string());
+            analysis
+                .issues
+                .push("执行时间差异过大，可能存在性能不一致的问题".to_string());
+            analysis
+                .suggestions
+                .push("优化数据结构和算法，确保性能一致性".to_string());
         }
 
         // 计算性能分数
@@ -123,10 +131,7 @@ impl PerformanceAnalyzer {
             bottlenecks.push(BottleneckAnalysis {
                 category: "memory".to_string(),
                 severity: BottleneckSeverity::Medium,
-                description: format!(
-                    "内存使用过高: {} bytes",
-                    stats.memory_stats.max_memory
-                ),
+                description: format!("内存使用过高: {} bytes", stats.memory_stats.max_memory),
                 impact: "可能导致内存不足或GC压力".to_string(),
                 solution: "优化内存使用，考虑使用对象池或缓存".to_string(),
             });
@@ -137,10 +142,7 @@ impl PerformanceAnalyzer {
             bottlenecks.push(BottleneckAnalysis {
                 category: "events".to_string(),
                 severity: BottleneckSeverity::Low,
-                description: format!(
-                    "事件数量过多: {} 个事件",
-                    stats.total_events
-                ),
+                description: format!("事件数量过多: {} 个事件", stats.total_events),
                 impact: "可能影响性能监控的开销".to_string(),
                 solution: "考虑减少事件记录或提高采样率".to_string(),
             });
@@ -166,7 +168,8 @@ impl PerformanceAnalyzer {
         }
 
         // 基于内存统计的建议
-        if stats.memory_stats.average_memory > 1024 * 1024 { // 1MB
+        if stats.memory_stats.average_memory > 1024 * 1024 {
+            // 1MB
             suggestions.push(OptimizationSuggestion {
                 category: "memory".to_string(),
                 priority: SuggestionPriority::Medium,
@@ -225,19 +228,24 @@ impl PerformanceAnalyzer {
 
         // 基于平均执行时间扣分
         if stats.average_duration > self.thresholds.slow_operation_threshold {
-            let penalty = (stats.average_duration.as_secs_f64() / self.thresholds.slow_operation_threshold.as_secs_f64()) * 10.0;
+            let penalty = (stats.average_duration.as_secs_f64()
+                / self.thresholds.slow_operation_threshold.as_secs_f64())
+                * 10.0;
             score -= penalty.min(50.0);
         }
 
         // 基于最大执行时间扣分
         if stats.max_duration > self.thresholds.very_slow_operation_threshold {
-            let penalty = (stats.max_duration.as_secs_f64() / self.thresholds.very_slow_operation_threshold.as_secs_f64()) * 15.0;
+            let penalty = (stats.max_duration.as_secs_f64()
+                / self.thresholds.very_slow_operation_threshold.as_secs_f64())
+                * 15.0;
             score -= penalty.min(40.0);
         }
 
         // 基于执行时间一致性加分
         if stats.max_duration > stats.min_duration {
-            let consistency_ratio = stats.min_duration.as_secs_f64() / stats.max_duration.as_secs_f64();
+            let consistency_ratio =
+                stats.min_duration.as_secs_f64() / stats.max_duration.as_secs_f64();
             score += consistency_ratio * 10.0;
         }
 
@@ -249,7 +257,9 @@ impl PerformanceAnalyzer {
         let mut score = 100.0;
 
         if timing_stats.average_duration > self.thresholds.slow_operation_threshold {
-            let penalty = (timing_stats.average_duration.as_secs_f64() / self.thresholds.slow_operation_threshold.as_secs_f64()) * 20.0;
+            let penalty = (timing_stats.average_duration.as_secs_f64()
+                / self.thresholds.slow_operation_threshold.as_secs_f64())
+                * 20.0;
             score -= penalty.min(60.0);
         }
 
@@ -261,7 +271,9 @@ impl PerformanceAnalyzer {
         let mut score = 100.0;
 
         if memory_stats.average_memory > self.thresholds.high_memory_threshold {
-            let penalty = (memory_stats.average_memory as f64 / self.thresholds.high_memory_threshold as f64) * 15.0;
+            let penalty = (memory_stats.average_memory as f64
+                / self.thresholds.high_memory_threshold as f64)
+                * 15.0;
             score -= penalty.min(50.0);
         }
 
@@ -274,7 +286,9 @@ impl PerformanceAnalyzer {
 
         // 基于事件数量扣分
         if stats.total_events > self.thresholds.high_event_count_threshold {
-            let penalty = (stats.total_events as f64 / self.thresholds.high_event_count_threshold as f64) * 10.0;
+            let penalty = (stats.total_events as f64
+                / self.thresholds.high_event_count_threshold as f64)
+                * 10.0;
             score -= penalty.min(30.0);
         }
 
@@ -298,7 +312,7 @@ impl PerformanceAnalyzer {
                 0.0
             },
             error_rate: 0.0, // 需要从事件中计算
-            cpu_usage: 0.0, // 需要从系统监控中获取
+            cpu_usage: 0.0,  // 需要从系统监控中获取
             memory_usage: stats.memory_stats.average_memory,
             cache_hit_rate: 0.0, // 需要从缓存统计中获取
         }
@@ -308,7 +322,10 @@ impl PerformanceAnalyzer {
     fn generate_summary(&self, report: &PerformanceReport) -> String {
         let mut summary = String::new();
 
-        summary.push_str(&format!("性能分析总结 (总分: {:.1}/100):\n", report.overall_score));
+        summary.push_str(&format!(
+            "性能分析总结 (总分: {:.1}/100):\n",
+            report.overall_score
+        ));
 
         if report.overall_score >= 80.0 {
             summary.push_str("✅ 性能表现优秀\n");
@@ -323,12 +340,28 @@ impl PerformanceAnalyzer {
         }
 
         if !report.recommendations.is_empty() {
-            summary.push_str(&format!("提供 {} 个优化建议\n", report.recommendations.len()));
+            summary.push_str(&format!(
+                "提供 {} 个优化建议\n",
+                report.recommendations.len()
+            ));
         }
 
-        summary.push_str(&format!("总操作数: {}\n", report.performance_metrics.total_operations));
-        summary.push_str(&format!("平均响应时间: {:.2}ms\n", report.performance_metrics.average_response_time.as_secs_f64() * 1000.0));
-        summary.push_str(&format!("吞吐量: {:.2} ops/sec\n", report.performance_metrics.throughput));
+        summary.push_str(&format!(
+            "总操作数: {}\n",
+            report.performance_metrics.total_operations
+        ));
+        summary.push_str(&format!(
+            "平均响应时间: {:.2}ms\n",
+            report
+                .performance_metrics
+                .average_response_time
+                .as_secs_f64()
+                * 1000.0
+        ));
+        summary.push_str(&format!(
+            "吞吐量: {:.2} ops/sec\n",
+            report.performance_metrics.throughput
+        ));
 
         summary
     }

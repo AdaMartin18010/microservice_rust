@@ -2,29 +2,22 @@
 //!
 //! 提供OAuth2认证、HTTPS/TLS支持和输入验证功能
 
-pub mod oauth2;
-pub mod tls;
-pub mod input_validation;
 pub mod cors;
+pub mod input_validation;
+pub mod oauth2;
 pub mod rate_limiting;
+pub mod tls;
 
-pub use oauth2::{
-    OAuth2Config, OAuth2Provider, OAuth2Client, OAuth2Token, OAuth2User,
-    OAuth2Error, OAuth2Manager,
-};
-pub use tls::{
-    TlsConfig, TlsManager, CertificateInfo, TlsError, TlsVersion,
-};
+pub use cors::{CorsConfig, CorsError, CorsManager};
 pub use input_validation::{
-    InputValidator, ValidationRule, InputValidationError, ValidationInput,
-    Sanitizer, XssProtection, SqlInjectionProtection,
+    InputValidationError, InputValidator, Sanitizer, SqlInjectionProtection, ValidationInput,
+    ValidationRule, XssProtection,
 };
-pub use cors::{
-    CorsConfig, CorsManager, CorsError,
+pub use oauth2::{
+    OAuth2Client, OAuth2Config, OAuth2Error, OAuth2Manager, OAuth2Provider, OAuth2Token, OAuth2User,
 };
-pub use rate_limiting::{
-    RateLimiter, RateLimitConfig, RateLimit, RateLimitError, RateLimitResult,
-};
+pub use rate_limiting::{RateLimit, RateLimitConfig, RateLimitError, RateLimitResult, RateLimiter};
+pub use tls::{CertificateInfo, TlsConfig, TlsError, TlsManager, TlsVersion};
 
 use std::collections::HashMap;
 // use serde::{Deserialize, Serialize}; // 暂时未使用
@@ -69,7 +62,11 @@ impl SecurityManager {
         }
 
         // 速率限制
-        match self.rate_limiter.check_limit(&request.client_id, &request.endpoint).await {
+        match self
+            .rate_limiter
+            .check_limit(&request.client_id, &request.endpoint)
+            .await
+        {
             Ok(rate_limit_result) => {
                 if rate_limit_result.exceeded {
                     results.push(SecurityCheckResult::RateLimitExceeded(rate_limit_result));
@@ -79,15 +76,19 @@ impl SecurityManager {
         }
 
         // CORS检查
-        if let Err(e) = self.cors.validate_request(&request.origin, &request.method, &request.path) {
+        if let Err(e) = self
+            .cors
+            .validate_request(&request.origin, &request.method, &request.path)
+        {
             results.push(SecurityCheckResult::CorsViolation(e));
         }
 
         // TLS检查
-        if let Some(tls_manager) = &self.tls {
-            if !request.is_https && tls_manager.is_required() {
-                results.push(SecurityCheckResult::TlsRequired);
-            }
+        if let Some(tls_manager) = &self.tls
+            && !request.is_https
+            && tls_manager.is_required()
+        {
+            results.push(SecurityCheckResult::TlsRequired);
         }
 
         if results.is_empty() {
@@ -98,9 +99,15 @@ impl SecurityManager {
     }
 
     /// 验证OAuth2令牌
-    pub async fn validate_oauth2_token(&mut self, token: &str) -> Result<OAuth2User, SecurityError> {
+    pub async fn validate_oauth2_token(
+        &mut self,
+        token: &str,
+    ) -> Result<OAuth2User, SecurityError> {
         if let Some(oauth2_manager) = &mut self.oauth2 {
-            oauth2_manager.validate_token(token).await.map_err(SecurityError::from)
+            oauth2_manager
+                .validate_token(token)
+                .await
+                .map_err(SecurityError::from)
         } else {
             Err(SecurityError::OAuth2NotConfigured)
         }
@@ -121,23 +128,12 @@ impl SecurityManager {
 }
 
 /// 安全配置
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SecurityConfig {
     pub oauth2: Option<OAuth2Config>,
     pub tls: Option<TlsConfig>,
     pub cors: CorsConfig,
     pub rate_limit: RateLimitConfig,
-}
-
-impl Default for SecurityConfig {
-    fn default() -> Self {
-        Self {
-            oauth2: None,
-            tls: None,
-            cors: CorsConfig::default(),
-            rate_limit: RateLimitConfig::default(),
-        }
-    }
 }
 
 /// 安全请求

@@ -7,14 +7,14 @@
 //! - Domain Events (领域事件)
 //! - Event Store (事件存储)
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::fmt::Debug;
-use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 /// 命令接口
 pub trait Command {
@@ -43,7 +43,7 @@ pub trait DomainEvent: Debug + Send + Sync {
 pub trait AggregateRoot {
     type Command: Command;
     type Event: DomainEvent;
-    
+
     fn id(&self) -> &str;
     fn version(&self) -> u32;
     fn uncommitted_events(&self) -> Vec<Box<dyn DomainEvent>>;
@@ -83,11 +83,11 @@ impl Command for CreateUserCommand {
     fn command_type(&self) -> &str {
         "CreateUser"
     }
-    
+
     fn aggregate_id(&self) -> &str {
         &self.id
     }
-    
+
     fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
@@ -107,11 +107,11 @@ impl Command for UpdateUserCommand {
     fn command_type(&self) -> &str {
         "UpdateUser"
     }
-    
+
     fn aggregate_id(&self) -> &str {
         &self.id
     }
-    
+
     fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
@@ -128,7 +128,7 @@ impl Query for GetUserQuery {
     fn query_type(&self) -> &str {
         "GetUser"
     }
-    
+
     fn parameters(&self) -> HashMap<String, String> {
         self.parameters.clone()
     }
@@ -146,7 +146,7 @@ impl Query for SearchUsersQuery {
     fn query_type(&self) -> &str {
         "SearchUsers"
     }
-    
+
     fn parameters(&self) -> HashMap<String, String> {
         self.parameters.clone()
     }
@@ -168,23 +168,23 @@ impl DomainEvent for UserCreatedEvent {
     fn event_type(&self) -> &str {
         "UserCreated"
     }
-    
+
     fn aggregate_id(&self) -> &str {
         &self.aggregate_id
     }
-    
+
     fn event_id(&self) -> &str {
         &self.event_id
     }
-    
+
     fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
-    
+
     fn version(&self) -> u32 {
         self.version
     }
-    
+
     fn clone_box(&self) -> Box<dyn DomainEvent> {
         Box::new(self.clone())
     }
@@ -206,23 +206,23 @@ impl DomainEvent for UserUpdatedEvent {
     fn event_type(&self) -> &str {
         "UserUpdated"
     }
-    
+
     fn aggregate_id(&self) -> &str {
         &self.aggregate_id
     }
-    
+
     fn event_id(&self) -> &str {
         &self.event_id
     }
-    
+
     fn timestamp(&self) -> DateTime<Utc> {
         self.timestamp
     }
-    
+
     fn version(&self) -> u32 {
         self.version
     }
-    
+
     fn clone_box(&self) -> Box<dyn DomainEvent> {
         Box::new(self.clone())
     }
@@ -255,7 +255,7 @@ impl UserAggregate {
             uncommitted_events: Vec::new(),
         }
     }
-    
+
     pub fn create(&mut self, command: CreateUserCommand) -> Result<Vec<Box<dyn DomainEvent>>> {
         let event = UserCreatedEvent {
             event_id: Uuid::new_v4().to_string(),
@@ -266,7 +266,7 @@ impl UserAggregate {
             timestamp: command.timestamp,
             version: self.version + 1,
         };
-        
+
         // 更新聚合状态
         self.id = command.id.clone();
         self.name = command.name;
@@ -274,14 +274,14 @@ impl UserAggregate {
         self.age = command.age;
         self.created_at = command.timestamp;
         self.version += 1;
-        
+
         // 将事件添加到未提交事件列表
         self.uncommitted_events.push(Box::new(event.clone()));
-        
+
         // 返回事件
         Ok(vec![Box::new(event)])
     }
-    
+
     pub fn update(&mut self, command: UpdateUserCommand) -> Result<Vec<Box<dyn DomainEvent>>> {
         let event = UserUpdatedEvent {
             event_id: Uuid::new_v4().to_string(),
@@ -292,7 +292,7 @@ impl UserAggregate {
             timestamp: command.timestamp,
             version: self.version + 1,
         };
-        
+
         // 更新聚合状态
         if let Some(name) = command.name {
             self.name = name;
@@ -305,10 +305,10 @@ impl UserAggregate {
         }
         self.updated_at = command.timestamp;
         self.version += 1;
-        
+
         // 将事件添加到未提交事件列表
         self.uncommitted_events.push(Box::new(event.clone()));
-        
+
         // 返回事件
         Ok(vec![Box::new(event)])
     }
@@ -317,23 +317,26 @@ impl UserAggregate {
 impl AggregateRoot for UserAggregate {
     type Command = CreateUserCommand;
     type Event = UserCreatedEvent;
-    
+
     fn id(&self) -> &str {
         &self.id
     }
-    
+
     fn version(&self) -> u32 {
         self.version
     }
-    
+
     fn uncommitted_events(&self) -> Vec<Box<dyn DomainEvent>> {
-        self.uncommitted_events.iter().map(|event| event.clone_box()).collect()
+        self.uncommitted_events
+            .iter()
+            .map(|event| event.clone_box())
+            .collect()
     }
-    
+
     fn mark_events_as_committed(&mut self) {
         self.uncommitted_events.clear();
     }
-    
+
     fn apply_event(&mut self, event: &Self::Event) {
         match event.event_type() {
             "UserCreated" => {
@@ -377,12 +380,12 @@ impl CommandHandler<CreateUserCommand> for UserCommandHandler {
             command.email.clone(),
             command.age,
         );
-        
+
         let events = aggregate.create(command)?;
-        
+
         // 简化实现，不实际保存事件
         println!("处理创建用户命令: {}", command_id);
-        
+
         Ok(events)
     }
 }
@@ -392,7 +395,7 @@ impl CommandHandler<UpdateUserCommand> for UserCommandHandler {
     async fn handle(&self, command: UpdateUserCommand) -> Result<Vec<Box<dyn DomainEvent>>> {
         // 简化实现，不实际处理更新
         println!("处理更新用户命令: {}", command.id);
-        
+
         Ok(Vec::new())
     }
 }
@@ -419,7 +422,9 @@ impl QueryHandler<GetUserQuery, Option<UserReadModel>> for UserQueryHandler {
 #[async_trait::async_trait]
 impl QueryHandler<SearchUsersQuery, Vec<UserReadModel>> for UserQueryHandler {
     async fn handle(&self, query: SearchUsersQuery) -> Result<Vec<UserReadModel>> {
-        self.read_model.search_users(&query.query, query.limit).await
+        self.read_model
+            .search_users(&query.query, query.limit)
+            .await
     }
 }
 
@@ -441,31 +446,42 @@ pub struct UserReadModelStore {
     users: Arc<RwLock<HashMap<String, UserReadModel>>>,
 }
 
+impl Default for UserReadModelStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserReadModelStore {
     pub fn new() -> Self {
         Self {
             users: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     pub async fn get_user(&self, id: &str) -> Result<Option<UserReadModel>> {
         let users = self.users.read().await;
         Ok(users.get(id).cloned())
     }
-    
-    pub async fn search_users(&self, query: &str, limit: Option<u32>) -> Result<Vec<UserReadModel>> {
+
+    pub async fn search_users(
+        &self,
+        query: &str,
+        limit: Option<u32>,
+    ) -> Result<Vec<UserReadModel>> {
         let users = self.users.read().await;
         let limit = limit.unwrap_or(10) as usize;
-        
-        let results: Vec<UserReadModel> = users.values()
+
+        let results: Vec<UserReadModel> = users
+            .values()
             .filter(|user| user.name.contains(query) || user.email.contains(query))
             .take(limit)
             .cloned()
             .collect();
-        
+
         Ok(results)
     }
-    
+
     pub async fn save_user(&self, user: UserReadModel) -> Result<()> {
         let mut users = self.users.write().await;
         users.insert(user.id.clone(), user);
@@ -479,29 +495,42 @@ pub struct EventStore {
     events: Arc<RwLock<HashMap<String, Vec<Box<dyn DomainEvent>>>>>,
 }
 
+impl Default for EventStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EventStore {
     pub fn new() -> Self {
         Self {
             events: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     pub async fn save_event(&self, event: &dyn DomainEvent) -> Result<()> {
         // 简化实现，不实际保存事件
         println!("保存事件: {}", event.event_type());
         Ok(())
     }
-    
+
     pub async fn get_events(&self, aggregate_id: &str) -> Result<Vec<Box<dyn DomainEvent>>> {
         let events = self.events.read().await;
         if let Some(aggregate_events) = events.get(aggregate_id) {
-            Ok(aggregate_events.iter().map(|event| event.clone_box()).collect())
+            Ok(aggregate_events
+                .iter()
+                .map(|event| event.clone_box())
+                .collect())
         } else {
             Ok(Vec::new())
         }
     }
-    
-    pub async fn get_events_from_version(&self, aggregate_id: &str, from_version: u32) -> Result<Vec<Box<dyn DomainEvent>>> {
+
+    pub async fn get_events_from_version(
+        &self,
+        aggregate_id: &str,
+        from_version: u32,
+    ) -> Result<Vec<Box<dyn DomainEvent>>> {
         let events = self.events.read().await;
         if let Some(aggregate_events) = events.get(aggregate_id) {
             let filtered_events: Vec<Box<dyn DomainEvent>> = aggregate_events
@@ -556,6 +585,12 @@ pub struct CompensationStep {
 }
 
 #[allow(dead_code)]
+impl Default for SagaCoordinator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SagaCoordinator {
     pub fn new() -> Self {
         Self {
@@ -564,16 +599,16 @@ impl SagaCoordinator {
             compensation_steps: Vec::new(),
         }
     }
-    
+
     pub fn add_step(&mut self, step: SagaStep) {
         self.steps.push(step);
     }
-    
+
     pub async fn execute(&mut self) -> Result<()> {
         for (index, step) in self.steps.iter_mut().enumerate() {
             self.current_step = index;
             step.status = SagaStepStatus::InProgress;
-            
+
             // 执行步骤
             let step_id = step.id.clone();
             let step_action = step.action.clone();
@@ -581,7 +616,7 @@ impl SagaCoordinator {
             let step_timeout = step.timeout_ms;
             let step_retry = step.retry_count;
             let step_status = step.status.clone();
-            
+
             // 临时创建一个新的步骤来避免借用冲突
             let temp_step = SagaStep {
                 id: step_id.clone(),
@@ -591,14 +626,14 @@ impl SagaCoordinator {
                 retry_count: step_retry,
                 status: step_status,
             };
-            
+
             let step_result = Self::execute_step_static(&temp_step);
-            
+
             match step_result {
                 Ok(_) => {
                     step.status = SagaStepStatus::Completed;
                     self.compensation_steps.push(CompensationStep {
-                        step_id: step_id,
+                        step_id,
                         action: step_compensation,
                         executed: false,
                     });
@@ -606,47 +641,51 @@ impl SagaCoordinator {
                 Err(e) => {
                     step.status = SagaStepStatus::Failed;
                     println!("步骤 {} 执行失败: {}", step_id, e);
-                    
+
                     // 执行补偿
                     self.compensate().await?;
                     return Err(e);
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
+    #[allow(dead_code)]
     fn execute_step(&self, step: &SagaStep) -> Result<()> {
         Self::execute_step_static(step)
     }
-    
+
     fn execute_step_static(step: &SagaStep) -> Result<()> {
         println!("执行 Saga 步骤: {} - {}", step.id, step.action);
-        
+
         // 模拟随机失败
         if step.action.contains("fail") {
             return Err(anyhow::anyhow!("步骤执行失败"));
         }
-        
+
         Ok(())
     }
-    
+
     async fn compensate(&mut self) -> Result<()> {
         println!("开始执行补偿操作...");
-        
+
         // 逆序执行补偿步骤
         for compensation_step in self.compensation_steps.iter_mut().rev() {
             if !compensation_step.executed {
-                println!("执行补偿: {} - {}", compensation_step.step_id, compensation_step.action);
-                
+                println!(
+                    "执行补偿: {} - {}",
+                    compensation_step.step_id, compensation_step.action
+                );
+
                 // 模拟补偿执行
                 tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-                
+
                 compensation_step.executed = true;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -669,10 +708,10 @@ impl OrderSaga {
             quantity,
         }
     }
-    
+
     pub async fn execute(&self) -> Result<()> {
         let mut coordinator = SagaCoordinator::new();
-        
+
         // 添加 Saga 步骤
         coordinator.add_step(SagaStep {
             id: "reserve_inventory".to_string(),
@@ -682,7 +721,7 @@ impl OrderSaga {
             retry_count: 3,
             status: SagaStepStatus::Pending,
         });
-        
+
         coordinator.add_step(SagaStep {
             id: "charge_payment".to_string(),
             action: "charge_payment".to_string(),
@@ -691,7 +730,7 @@ impl OrderSaga {
             retry_count: 3,
             status: SagaStepStatus::Pending,
         });
-        
+
         coordinator.add_step(SagaStep {
             id: "create_order".to_string(),
             action: "create_order".to_string(),
@@ -700,7 +739,7 @@ impl OrderSaga {
             retry_count: 3,
             status: SagaStepStatus::Pending,
         });
-        
+
         coordinator.add_step(SagaStep {
             id: "send_notification".to_string(),
             action: "send_notification".to_string(),
@@ -709,7 +748,7 @@ impl OrderSaga {
             retry_count: 3,
             status: SagaStepStatus::Pending,
         });
-        
+
         // 执行 Saga
         coordinator.execute().await
     }
@@ -724,13 +763,19 @@ pub struct AdvancedPatternsService {
     user_query_handler: UserQueryHandler,
 }
 
+impl Default for AdvancedPatternsService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AdvancedPatternsService {
     pub fn new() -> Self {
         let event_store = Arc::new(EventStore::new());
         let user_read_model = Arc::new(UserReadModelStore::new());
         let user_command_handler = UserCommandHandler::new(event_store.clone());
         let user_query_handler = UserQueryHandler::new(user_read_model.clone());
-        
+
         Self {
             event_store,
             user_read_model,
@@ -738,13 +783,16 @@ impl AdvancedPatternsService {
             user_query_handler,
         }
     }
-    
+
     /// 执行命令
-    pub async fn execute_command<T: Command + Serialize>(&self, command: T) -> Result<Vec<Box<dyn DomainEvent>>> {
+    pub async fn execute_command<T: Command + Serialize>(
+        &self,
+        command: T,
+    ) -> Result<Vec<Box<dyn DomainEvent>>> {
         match command.command_type() {
             "CreateUser" => {
                 if let Ok(create_user_cmd) = serde_json::from_value::<CreateUserCommand>(
-                    serde_json::to_value(&command).unwrap()
+                    serde_json::to_value(&command).unwrap(),
                 ) {
                     self.user_command_handler.handle(create_user_cmd).await
                 } else {
@@ -753,25 +801,29 @@ impl AdvancedPatternsService {
             }
             "UpdateUser" => {
                 if let Ok(update_user_cmd) = serde_json::from_value::<UpdateUserCommand>(
-                    serde_json::to_value(&command).unwrap()
+                    serde_json::to_value(&command).unwrap(),
                 ) {
                     self.user_command_handler.handle(update_user_cmd).await
                 } else {
                     Err(anyhow::anyhow!("无效的命令类型"))
                 }
             }
-            _ => Err(anyhow::anyhow!("未知的命令类型: {}", command.command_type())),
+            _ => Err(anyhow::anyhow!(
+                "未知的命令类型: {}",
+                command.command_type()
+            )),
         }
     }
-    
+
     /// 执行查询
     pub async fn execute_query<T: Query + Serialize, R>(&self, query: T) -> Result<R> {
         match query.query_type() {
             "GetUser" => {
-                if let Ok(get_user_query) = serde_json::from_value::<GetUserQuery>(
-                    serde_json::to_value(&query).unwrap()
-                ) {
-                    let _result: Result<Option<UserReadModel>> = self.user_query_handler.handle(get_user_query).await;
+                if let Ok(get_user_query) =
+                    serde_json::from_value::<GetUserQuery>(serde_json::to_value(&query).unwrap())
+                {
+                    let _result: Result<Option<UserReadModel>> =
+                        self.user_query_handler.handle(get_user_query).await;
                     // 这里需要类型转换，但为了简化，我们返回错误
                     Err(anyhow::anyhow!("查询类型转换需要具体实现"))
                 } else {
@@ -780,9 +832,10 @@ impl AdvancedPatternsService {
             }
             "SearchUsers" => {
                 if let Ok(search_users_query) = serde_json::from_value::<SearchUsersQuery>(
-                    serde_json::to_value(&query).unwrap()
+                    serde_json::to_value(&query).unwrap(),
                 ) {
-                    let _result: Result<Vec<UserReadModel>> = self.user_query_handler.handle(search_users_query).await;
+                    let _result: Result<Vec<UserReadModel>> =
+                        self.user_query_handler.handle(search_users_query).await;
                     // 这里需要类型转换，但为了简化，我们返回错误
                     Err(anyhow::anyhow!("查询类型转换需要具体实现"))
                 } else {
@@ -792,18 +845,24 @@ impl AdvancedPatternsService {
             _ => Err(anyhow::anyhow!("未知的查询类型: {}", query.query_type())),
         }
     }
-    
+
     /// 执行 Saga
-    pub async fn execute_saga(&self, order_id: String, user_id: String, product_id: String, quantity: u32) -> Result<()> {
+    pub async fn execute_saga(
+        &self,
+        order_id: String,
+        user_id: String,
+        product_id: String,
+        quantity: u32,
+    ) -> Result<()> {
         let saga = OrderSaga::new(order_id, user_id, product_id, quantity);
         saga.execute().await
     }
-    
+
     /// 获取事件存储
     pub fn get_event_store(&self) -> Arc<EventStore> {
         self.event_store.clone()
     }
-    
+
     /// 获取读取模型
     pub fn get_read_model(&self) -> Arc<UserReadModelStore> {
         self.user_read_model.clone()
@@ -832,7 +891,7 @@ mod tests {
             "test@example.com".to_string(),
             Some(25),
         );
-        
+
         let command = CreateUserCommand {
             id: "user_1".to_string(),
             name: "Test User".to_string(),
@@ -840,7 +899,7 @@ mod tests {
             age: Some(25),
             timestamp: Utc::now(),
         };
-        
+
         let events = aggregate.create(command).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(aggregate.version, 1);
@@ -858,7 +917,7 @@ mod tests {
             timestamp: Utc::now(),
             version: 1,
         };
-        
+
         event_store.save_event(&event).await.unwrap();
         let events = event_store.get_events("user_1").await.unwrap();
         assert_eq!(events.len(), 1);
@@ -867,7 +926,7 @@ mod tests {
     #[tokio::test]
     async fn test_saga_coordinator() {
         let mut coordinator = SagaCoordinator::new();
-        
+
         coordinator.add_step(SagaStep {
             id: "step_1".to_string(),
             action: "test_action".to_string(),
@@ -876,7 +935,7 @@ mod tests {
             retry_count: 3,
             status: SagaStepStatus::Pending,
         });
-        
+
         let result = coordinator.execute().await;
         assert!(result.is_ok());
     }

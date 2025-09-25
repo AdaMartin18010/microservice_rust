@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use tracing::{info, error, instrument};
+use tracing::{error, info, instrument};
 
 /// 消息结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -367,10 +367,14 @@ impl KafkaProducer {
         payload: &[u8],
         headers: Option<HashMap<String, Vec<u8>>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        info!("发布消息到Kafka主题: {} (大小: {} bytes)", topic, payload.len());
-        
+        info!(
+            "发布消息到Kafka主题: {} (大小: {} bytes)",
+            topic,
+            payload.len()
+        );
+
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         info!("消息发布成功到主题: {}", topic);
         Ok(())
     }
@@ -404,7 +408,10 @@ impl KafkaConsumer {
     }
 
     #[instrument(skip(self))]
-    pub async fn subscribe(&mut self, topics: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn subscribe(
+        &mut self,
+        topics: Vec<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         info!("订阅Kafka主题: {:?}", topics);
         info!("主题订阅成功");
         Ok(())
@@ -416,10 +423,10 @@ impl KafkaConsumer {
         H: MessageHandler + 'static,
     {
         info!("开始消费Kafka消息");
-        
+
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx);
-        
+
         let handler = std::sync::Arc::new(handler);
         tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
@@ -428,30 +435,30 @@ impl KafkaConsumer {
                 }
             }
         });
-        
+
         self.message_consumption_loop().await;
         Ok(())
     }
 
     async fn message_consumption_loop(&self) {
         let mut message_count = 0;
-        
+
         loop {
             if message_count < 5 {
                 let mock_message = Message::new(
                     "test-topic".to_string(),
                     format!("消息 {}", message_count).into_bytes(),
                 );
-                
-                if let Some(ref tx) = self.message_tx {
-                    if tx.send(mock_message).is_err() {
-                        break;
-                    }
+
+                if let Some(ref tx) = self.message_tx
+                    && tx.send(mock_message).is_err()
+                {
+                    break;
                 }
-                
+
                 message_count += 1;
             }
-            
+
             tokio::time::sleep(Duration::from_millis(1000)).await;
         }
     }
@@ -481,20 +488,23 @@ impl KafkaAdminClient {
         partitions: i32,
         replication_factor: i16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        info!("创建Kafka主题: {} (分区: {}, 副本: {})", name, partitions, replication_factor);
+        info!(
+            "创建Kafka主题: {} (分区: {}, 副本: {})",
+            name, partitions, replication_factor
+        );
         info!("主题创建成功: {}", name);
         Ok(())
     }
 
     pub async fn list_topics(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         info!("列出Kafka主题");
-        
+
         let topics = vec![
             "user-events".to_string(),
             "order-events".to_string(),
             "payment-events".to_string(),
         ];
-        
+
         info!("找到 {} 个主题", topics.len());
         Ok(topics)
     }
@@ -628,10 +638,14 @@ impl NatsClient {
         payload: &[u8],
         reply: Option<&str>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        info!("发布消息到NATS主题: {} (大小: {} bytes)", subject, payload.len());
-        
+        info!(
+            "发布消息到NATS主题: {} (大小: {} bytes)",
+            subject,
+            payload.len()
+        );
+
         tokio::time::sleep(Duration::from_millis(5)).await;
-        
+
         info!("消息发布成功到主题: {}", subject);
         Ok(())
     }
@@ -642,27 +656,35 @@ impl NatsClient {
         payload: &[u8],
         timeout: Option<Duration>,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        info!("发送请求到NATS主题: {} (大小: {} bytes)", subject, payload.len());
-        
+        info!(
+            "发送请求到NATS主题: {} (大小: {} bytes)",
+            subject,
+            payload.len()
+        );
+
         let _timeout = timeout.unwrap_or(self.config.request_timeout);
-        
+
         tokio::time::sleep(Duration::from_millis(10)).await;
-        
+
         let mock_response = format!("响应来自主题: {}", subject);
         info!("收到响应: {} bytes", mock_response.len());
-        
+
         Ok(mock_response.into_bytes())
     }
 
-    pub async fn subscribe<H>(&mut self, subject: &str, handler: H) -> Result<NatsSubscription, Box<dyn std::error::Error>>
+    pub async fn subscribe<H>(
+        &mut self,
+        subject: &str,
+        handler: H,
+    ) -> Result<NatsSubscription, Box<dyn std::error::Error>>
     where
         H: MessageHandler + 'static,
     {
         info!("订阅NATS主题: {}", subject);
-        
+
         let (tx, mut rx) = mpsc::unbounded_channel();
         self.message_tx = Some(tx.clone());
-        
+
         let handler = std::sync::Arc::new(handler);
         let subject = subject.to_string();
         let handle = tokio::spawn(async move {
@@ -672,13 +694,13 @@ impl NatsClient {
                 }
             }
         });
-        
+
         let subscription = NatsSubscription {
             subject: subject.clone(),
             _handle: handle,
             _tx: tx,
         };
-        
+
         info!("主题订阅成功: {}", subject);
         Ok(subscription)
     }
@@ -731,9 +753,7 @@ pub struct NatsManager {
 
 impl NatsManager {
     pub fn new() -> Self {
-        Self {
-            client: None,
-        }
+        Self { client: None }
     }
 
     pub fn add_client(&mut self, config: NatsConfig) {

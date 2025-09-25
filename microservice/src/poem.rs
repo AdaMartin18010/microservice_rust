@@ -1,5 +1,5 @@
 //! Poem 微服务框架支持
-//! 
+//!
 //! Poem 是一个现代化的 Rust Web 框架，具有高性能、易用性和丰富的功能
 
 #[cfg(feature = "with-poem")]
@@ -20,18 +20,21 @@ pub use routes::*;
 #[cfg(feature = "with-poem")]
 pub mod prelude {
     pub use poem::{
-        get, handler, listener::TcpListener, middleware::Tracing, post, put, delete,
-        EndpointExt, Route, Server, web::{Json, Path, Query},
+        EndpointExt, Route, Server, delete, get, handler,
+        listener::TcpListener,
+        middleware::Tracing,
+        post, put,
+        web::{Json, Path, Query},
     };
     pub use serde::{Deserialize, Serialize};
-    pub use tracing::{info, warn, error};
+    pub use tracing::{error, info, warn};
 }
 
 /// 创建基础的 Poem 应用
 #[cfg(feature = "with-poem")]
 pub fn create_app() -> poem::Route {
     use poem::prelude::*;
-    
+
     Route::new()
         .at("/health", get(health_check))
         .at("/metrics", get(metrics))

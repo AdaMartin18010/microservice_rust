@@ -1,15 +1,15 @@
 //! Rust 1.90 新特性演示
-//! 
+//!
 //! 本示例展示了Rust 1.90版本中引入的新特性在微服务开发中的应用
 //! 包括：异步trait、泛型关联类型(GAT)、类型别名实现特性(TAIT)等
 
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 /// Rust 1.90 新特性：稳定的异步trait
 /// 不再需要async-trait宏，可以直接定义异步trait
@@ -21,9 +21,13 @@ trait AsyncService {
 /// 泛型关联类型(GAT)示例
 /// 允许在trait中定义关联类型的泛型参数
 trait AsyncIterator {
-    type Item<'a> where Self: 'a;
-    type Future<'a>: Future<Output = Option<Self::Item<'a>>> where Self: 'a;
-    
+    type Item<'a>
+    where
+        Self: 'a;
+    type Future<'a>: Future<Output = Option<Self::Item<'a>>>
+    where
+        Self: 'a;
+
     fn next<'a>(&'a mut self) -> Self::Future<'a>;
 }
 
@@ -100,17 +104,23 @@ pub struct User {
 impl UserService {
     pub fn new() -> Self {
         let mut users = HashMap::new();
-        users.insert("1".to_string(), User {
-            id: "1".to_string(),
-            name: "Alice".to_string(),
-            email: "alice@example.com".to_string(),
-        });
-        users.insert("2".to_string(), User {
-            id: "2".to_string(),
-            name: "Bob".to_string(),
-            email: "bob@example.com".to_string(),
-        });
-        
+        users.insert(
+            "1".to_string(),
+            User {
+                id: "1".to_string(),
+                name: "Alice".to_string(),
+                email: "alice@example.com".to_string(),
+            },
+        );
+        users.insert(
+            "2".to_string(),
+            User {
+                id: "2".to_string(),
+                name: "Bob".to_string(),
+                email: "bob@example.com".to_string(),
+            },
+        );
+
         Self {
             users: Arc::new(RwLock::new(users)),
         }
@@ -121,13 +131,13 @@ impl UserService {
 impl AsyncService for UserService {
     async fn process_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
         println!("处理用户服务请求: {:?}", request);
-        
+
         // 模拟异步处理
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         let users = self.users.read().await;
         let user = users.get(&request.id);
-        
+
         match user {
             Some(user) => Ok(ServiceResponse {
                 id: request.id,
@@ -141,7 +151,7 @@ impl AsyncService for UserService {
             }),
         }
     }
-    
+
     async fn health_check(&self) -> Result<HealthStatus> {
         Ok(HealthStatus {
             service: "user-service".to_string(),
@@ -177,19 +187,20 @@ pub struct OrderItem {
 impl OrderService {
     pub fn new() -> Self {
         let mut orders = HashMap::new();
-        orders.insert("1".to_string(), Order {
-            id: "1".to_string(),
-            user_id: "1".to_string(),
-            items: vec![
-                OrderItem {
+        orders.insert(
+            "1".to_string(),
+            Order {
+                id: "1".to_string(),
+                user_id: "1".to_string(),
+                items: vec![OrderItem {
                     product_id: "p1".to_string(),
                     quantity: 2,
                     price: 10.0,
-                }
-            ],
-            total: 20.0,
-        });
-        
+                }],
+                total: 20.0,
+            },
+        );
+
         Self {
             orders: Arc::new(RwLock::new(orders)),
         }
@@ -199,13 +210,13 @@ impl OrderService {
 impl AsyncService for OrderService {
     async fn process_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
         println!("处理订单服务请求: {:?}", request);
-        
+
         // 模拟异步处理
         tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
-        
+
         let orders = self.orders.read().await;
         let order = orders.get(&request.id);
-        
+
         match order {
             Some(order) => Ok(ServiceResponse {
                 id: request.id,
@@ -219,7 +230,7 @@ impl AsyncService for OrderService {
             }),
         }
     }
-    
+
     async fn health_check(&self) -> Result<HealthStatus> {
         Ok(HealthStatus {
             service: "order-service".to_string(),
@@ -238,7 +249,7 @@ impl AsyncService for ServiceType {
             ServiceType::Order(service) => service.process_request(request).await,
         }
     }
-    
+
     async fn health_check(&self) -> Result<HealthStatus> {
         match self {
             ServiceType::User(service) => service.health_check().await,
@@ -255,17 +266,14 @@ pub struct ServiceRequestStream {
 
 impl ServiceRequestStream {
     pub fn new(requests: Vec<ServiceRequest>) -> Self {
-        Self {
-            requests,
-            index: 0,
-        }
+        Self { requests, index: 0 }
     }
 }
 
 impl AsyncIterator for ServiceRequestStream {
     type Item<'a> = &'a ServiceRequest;
     type Future<'a> = Pin<Box<dyn Future<Output = Option<&'a ServiceRequest>> + 'a>>;
-    
+
     fn next<'a>(&'a mut self) -> Self::Future<'a> {
         Box::pin(async move {
             if self.index < self.requests.len() {
@@ -291,13 +299,17 @@ impl ServiceManager {
             services: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     pub async fn register_service(&self, name: String, service: ServiceType) {
         let mut services = self.services.write().await;
         services.insert(name, service);
     }
-    
-    pub async fn process_request(&self, service_name: &str, request: ServiceRequest) -> Result<ServiceResponse> {
+
+    pub async fn process_request(
+        &self,
+        service_name: &str,
+        request: ServiceRequest,
+    ) -> Result<ServiceResponse> {
         let services = self.services.read().await;
         if let Some(service) = services.get(service_name) {
             service.process_request(request).await
@@ -305,11 +317,11 @@ impl ServiceManager {
             Err(ServiceError::ServiceUnavailable(format!("服务 {} 未找到", service_name)).into())
         }
     }
-    
+
     pub async fn health_check_all(&self) -> Result<Vec<HealthStatus>> {
         let services = self.services.read().await;
         let mut results = Vec::new();
-        
+
         for (name, service) in services.iter() {
             match service.health_check().await {
                 Ok(status) => results.push(status),
@@ -325,7 +337,7 @@ impl ServiceManager {
                 }
             }
         }
-        
+
         Ok(results)
     }
 }
@@ -344,24 +356,22 @@ async fn process_service_result<T>(result: ServiceResult<T>) -> Result<T> {
 async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 Rust 1.90 新特性演示");
     println!("================================");
-    
+
     // 创建服务管理器
     let manager = ServiceManager::new();
-    
+
     // 注册服务
-    manager.register_service(
-        "user".to_string(),
-        ServiceType::User(UserService::new()),
-    ).await;
-    
-    manager.register_service(
-        "order".to_string(),
-        ServiceType::Order(OrderService::new()),
-    ).await;
-    
+    manager
+        .register_service("user".to_string(), ServiceType::User(UserService::new()))
+        .await;
+
+    manager
+        .register_service("order".to_string(), ServiceType::Order(OrderService::new()))
+        .await;
+
     // 演示异步trait使用
     println!("\n📡 演示异步trait使用:");
     let user_request = ServiceRequest {
@@ -369,19 +379,19 @@ async fn main() -> Result<()> {
         data: "get_user".to_string(),
         metadata: HashMap::new(),
     };
-    
+
     let response = manager.process_request("user", user_request).await?;
     println!("用户服务响应: {:?}", response);
-    
+
     let order_request = ServiceRequest {
         id: "1".to_string(),
         data: "get_order".to_string(),
         metadata: HashMap::new(),
     };
-    
+
     let response = manager.process_request("order", order_request).await?;
     println!("订单服务响应: {:?}", response);
-    
+
     // 演示异步迭代器（GAT）
     println!("\n🔄 演示异步迭代器（GAT）:");
     let requests = vec![
@@ -396,19 +406,19 @@ async fn main() -> Result<()> {
             metadata: HashMap::new(),
         },
     ];
-    
+
     let mut stream = ServiceRequestStream::new(requests);
     while let Some(request) = stream.next().await {
         println!("处理请求: {:?}", request);
     }
-    
+
     // 演示健康检查
     println!("\n🏥 演示健康检查:");
     let health_statuses = manager.health_check_all().await?;
     for status in health_statuses {
         println!("服务健康状态: {:?}", status);
     }
-    
+
     // 演示并发处理
     println!("\n⚡ 演示并发处理:");
     let handles: Vec<_> = (1..=5)
@@ -420,7 +430,7 @@ async fn main() -> Result<()> {
                     data: format!("concurrent_request_{}", i),
                     metadata: HashMap::new(),
                 };
-                
+
                 let service_name = if i % 2 == 0 { "user" } else { "order" };
                 match manager.process_request(service_name, request).await {
                     Ok(response) => println!("并发请求 {} 成功: {:?}", i, response),
@@ -429,12 +439,12 @@ async fn main() -> Result<()> {
             })
         })
         .collect();
-    
+
     // 等待所有并发任务完成
     for handle in handles {
         handle.await?;
     }
-    
+
     println!("\n✅ Rust 1.90 新特性演示完成！");
     println!("主要特性包括:");
     println!("- 稳定的异步trait，无需async-trait宏");
@@ -442,14 +452,14 @@ async fn main() -> Result<()> {
     println!("- 类型别名实现特性(TAIT)");
     println!("- 改进的异步编程体验");
     println!("- 更好的类型推断和错误处理");
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_user_service() {
         let service = UserService::new();
@@ -458,11 +468,11 @@ mod tests {
             data: "test".to_string(),
             metadata: HashMap::new(),
         };
-        
+
         let response = service.process_request(request).await.unwrap();
         assert_eq!(response.status, ResponseStatus::Success);
     }
-    
+
     #[tokio::test]
     async fn test_order_service() {
         let service = OrderService::new();
@@ -471,25 +481,24 @@ mod tests {
             data: "test".to_string(),
             metadata: HashMap::new(),
         };
-        
+
         let response = service.process_request(request).await.unwrap();
         assert_eq!(response.status, ResponseStatus::Success);
     }
-    
+
     #[tokio::test]
     async fn test_service_manager() {
         let manager = ServiceManager::new();
-        manager.register_service(
-            "test".to_string(),
-            Box::new(UserService::new()),
-        ).await;
-        
+        manager
+            .register_service("test".to_string(), Box::new(UserService::new()))
+            .await;
+
         let request = ServiceRequest {
             id: "1".to_string(),
             data: "test".to_string(),
             metadata: HashMap::new(),
         };
-        
+
         let response = manager.process_request("test", request).await.unwrap();
         assert_eq!(response.status, ResponseStatus::Success);
     }

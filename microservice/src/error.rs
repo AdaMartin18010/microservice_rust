@@ -122,7 +122,6 @@ where
         F: FnOnce() -> String,
     {
         self.map_err(|e| {
-            
             // 这里可以添加上下文信息到错误中
             e.into()
         })

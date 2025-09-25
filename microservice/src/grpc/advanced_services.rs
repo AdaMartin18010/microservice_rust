@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tonic::transport::Channel;
-use tracing::{info, warn, error, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::Config,
@@ -63,9 +63,18 @@ pub struct BatchUserRequest {
 
 #[derive(Debug, Clone)]
 pub enum UserOperation {
-    Create { name: String, email: String },
-    Update { id: String, name: Option<String>, email: Option<String> },
-    Delete { id: String },
+    Create {
+        name: String,
+        email: String,
+    },
+    Update {
+        id: String,
+        name: Option<String>,
+        email: Option<String>,
+    },
+    Delete {
+        id: String,
+    },
 }
 
 /// 批量操作响应
@@ -79,8 +88,15 @@ pub struct BatchUserResponse {
 
 #[derive(Debug)]
 pub enum OperationResult {
-    Success { id: String, operation: String },
-    Failure { id: String, operation: String, error: String },
+    Success {
+        id: String,
+        operation: String,
+    },
+    Failure {
+        id: String,
+        operation: String,
+        error: String,
+    },
 }
 
 impl AdvancedUserService {
@@ -96,7 +112,7 @@ impl AdvancedUserService {
     #[instrument(skip(self))]
     pub async fn create_user(&self, name: String, email: String) -> Result<UserData> {
         let start = Instant::now();
-        
+
         let user = UserData {
             id: uuid::Uuid::new_v4().to_string(),
             name,
@@ -120,7 +136,7 @@ impl AdvancedUserService {
     #[instrument(skip(self))]
     pub async fn get_user(&self, id: &str) -> Result<UserData> {
         let start = Instant::now();
-        
+
         let store = self.store.read().await;
         match store.get(id) {
             Some(user) => {
@@ -146,7 +162,7 @@ impl AdvancedUserService {
         expected_version: u32,
     ) -> Result<UserData> {
         let start = Instant::now();
-        
+
         let mut store = self.store.write().await;
         match store.get_mut(id) {
             Some(user) => {
@@ -162,7 +178,7 @@ impl AdvancedUserService {
                 if let Some(new_email) = email {
                     user.email = new_email;
                 }
-                
+
                 user.updated_at = crate::utils::current_timestamp_secs();
                 user.version += 1;
 
@@ -182,7 +198,7 @@ impl AdvancedUserService {
     #[instrument(skip(self))]
     pub async fn delete_user(&self, id: &str) -> Result<bool> {
         let start = Instant::now();
-        
+
         let mut store = self.store.write().await;
         match store.remove(id) {
             Some(_) => {
@@ -270,7 +286,10 @@ impl AdvancedUserService {
         };
 
         self.update_metrics(success_count > 0, start.elapsed());
-        info!("批量操作完成: 成功{}个, 失败{}个", success_count, failure_count);
+        info!(
+            "批量操作完成: 成功{}个, 失败{}个",
+            success_count, failure_count
+        );
         Ok(response)
     }
 
@@ -313,7 +332,7 @@ impl AdvancedUserService {
     pub async fn health_check(&self) -> Result<HealthStatus> {
         let store = self.store.read().await;
         let user_count = store.len();
-        
+
         Ok(HealthStatus {
             status: "healthy".to_string(),
             user_count: user_count as u32,
@@ -339,6 +358,12 @@ pub struct HealthStatus {
 /// gRPC拦截器 - 请求日志
 #[derive(Clone)]
 pub struct LoggingInterceptor;
+
+impl Default for LoggingInterceptor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl LoggingInterceptor {
     pub fn new() -> Self {
@@ -367,16 +392,24 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
+    type Future = std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>>
+                + Send,
+        >,
+    >;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<std::result::Result<(), Self::Error>> {
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         let start = Instant::now();
         info!("gRPC请求开始: {:?}", request);
-        
+
         let future = self.inner.call(request);
         Box::pin(async move {
             let result = future.await;
@@ -428,19 +461,24 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
+    type Future = std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = std::result::Result<Self::Response, Self::Error>>
+                + Send,
+        >,
+    >;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<std::result::Result<(), Self::Error>> {
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, request: Request) -> Self::Future {
         // 简化的限流实现
         let future = self.inner.call(request);
-        Box::pin(async move {
-            // 这里应该实现实际的限流逻辑
-            future.await
-        })
+        Box::pin(future)
     }
 }
 
@@ -461,7 +499,8 @@ impl AdvancedGrpcServer {
     /// 启动高级gRPC服务器
     pub async fn serve(self) -> Result<()> {
         let addr_str = format!("{}:{}", self.config.service.host, self.config.service.port);
-        let _addr = addr_str.parse::<std::net::SocketAddr>()
+        let _addr = addr_str
+            .parse::<std::net::SocketAddr>()
             .map_err(|e| Error::config(format!("无效的服务器地址: {}", e)))?;
 
         info!("启动高级gRPC服务器: {}", addr_str);
@@ -494,7 +533,7 @@ impl AdvancedGrpcClient {
     /// 创建新的高级gRPC客户端
     pub async fn new(server_url: &str) -> Result<Self> {
         info!("创建高级gRPC客户端连接到: {}", server_url);
-        
+
         let channel = Channel::from_shared(server_url.to_string())
             .map_err(|e| Error::config(format!("创建gRPC通道失败: {}", e)))?
             .connect()
@@ -507,7 +546,7 @@ impl AdvancedGrpcClient {
     /// 创建用户
     pub async fn create_user(&mut self, name: String, email: String) -> Result<UserData> {
         info!("通过高级gRPC创建用户: {} ({})", name, email);
-        
+
         // 这里需要根据实际的.proto文件生成客户端代码
         // 简化实现
         Ok(UserData {
@@ -521,9 +560,12 @@ impl AdvancedGrpcClient {
     }
 
     /// 流式获取用户
-    pub async fn stream_users(&mut self, batch_size: usize) -> Result<mpsc::Receiver<UserStreamData>> {
+    pub async fn stream_users(
+        &mut self,
+        batch_size: usize,
+    ) -> Result<mpsc::Receiver<UserStreamData>> {
         info!("通过高级gRPC流式获取用户，批次大小: {}", batch_size);
-        
+
         // 简化实现
         let (tx, rx) = mpsc::channel(10);
         tokio::spawn(async move {
@@ -540,26 +582,32 @@ impl AdvancedGrpcClient {
                     total_count: 5,
                     batch_id: format!("batch_{}", i),
                 };
-                
+
                 if tx.send(batch_data).await.is_err() {
                     break;
                 }
-                
+
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
         });
-        
+
         Ok(rx)
     }
 
     /// 批量操作
-    pub async fn batch_operation(&mut self, request: BatchUserRequest) -> Result<BatchUserResponse> {
-        info!("通过高级gRPC执行批量操作，操作数量: {}", request.operations.len());
-        
+    pub async fn batch_operation(
+        &mut self,
+        request: BatchUserRequest,
+    ) -> Result<BatchUserResponse> {
+        info!(
+            "通过高级gRPC执行批量操作，操作数量: {}",
+            request.operations.len()
+        );
+
         // 简化实现
         let mut results = Vec::new();
         let mut success_count = 0;
-        
+
         for operation in request.operations {
             results.push(OperationResult::Success {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -567,7 +615,7 @@ impl AdvancedGrpcClient {
             });
             success_count += 1;
         }
-        
+
         Ok(BatchUserResponse {
             results,
             batch_id: request.batch_id,
@@ -587,7 +635,10 @@ mod tests {
         let service = AdvancedUserService::new(config);
 
         // 测试创建用户
-        let user = service.create_user("测试用户".to_string(), "test@example.com".to_string()).await.unwrap();
+        let user = service
+            .create_user("测试用户".to_string(), "test@example.com".to_string())
+            .await
+            .unwrap();
         assert_eq!(user.name, "测试用户");
         assert_eq!(user.version, 1);
 
@@ -596,7 +647,10 @@ mod tests {
         assert_eq!(retrieved_user.id, user.id);
 
         // 测试更新用户
-        let updated_user = service.update_user(&user.id, Some("更新用户".to_string()), None, 1).await.unwrap();
+        let updated_user = service
+            .update_user(&user.id, Some("更新用户".to_string()), None, 1)
+            .await
+            .unwrap();
         assert_eq!(updated_user.name, "更新用户");
         assert_eq!(updated_user.version, 2);
 
@@ -616,8 +670,14 @@ mod tests {
 
         let request = BatchUserRequest {
             operations: vec![
-                UserOperation::Create { name: "用户1".to_string(), email: "user1@example.com".to_string() },
-                UserOperation::Create { name: "用户2".to_string(), email: "user2@example.com".to_string() },
+                UserOperation::Create {
+                    name: "用户1".to_string(),
+                    email: "user1@example.com".to_string(),
+                },
+                UserOperation::Create {
+                    name: "用户2".to_string(),
+                    email: "user2@example.com".to_string(),
+                },
             ],
             batch_id: "test_batch".to_string(),
         };
@@ -633,7 +693,10 @@ mod tests {
         // 这里主要测试客户端的创建和基本功能
         match AdvancedGrpcClient::new("http://localhost:50051").await {
             Ok(mut client) => {
-                let user = client.create_user("测试用户".to_string(), "test@example.com".to_string()).await.unwrap();
+                let user = client
+                    .create_user("测试用户".to_string(), "test@example.com".to_string())
+                    .await
+                    .unwrap();
                 assert_eq!(user.name, "测试用户");
 
                 let mut stream = client.stream_users(2).await.unwrap();

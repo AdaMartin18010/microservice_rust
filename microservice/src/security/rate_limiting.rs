@@ -2,12 +2,12 @@
 //!
 //! 提供请求速率限制和DDoS保护功能
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 /// 速率限制配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,20 +113,22 @@ impl RateLimiter {
         let limit = self.get_limit_for_endpoint(endpoint);
 
         let mut counters = self.counters.write().await;
-        
+
         // 获取或创建客户端计数器
-        let counter = counters.entry(key.clone()).or_insert_with(ClientCounter::new);
-        
+        let counter = counters
+            .entry(key.clone())
+            .or_insert_with(ClientCounter::new);
+
         // 清理过期的请求记录
         counter.cleanup_old_requests(limit.window_size);
-        
+
         // 检查是否超过限制
         let current_requests = counter.get_request_count(limit.window_size);
-        
+
         if current_requests >= limit.requests_per_window {
             counter.blocked_requests += 1;
             *self.blocked_count.write().await += 1;
-            
+
             return Ok(RateLimitResult {
                 allowed: false,
                 exceeded: true,
@@ -140,7 +142,8 @@ impl RateLimiter {
         }
 
         // 检查突发限制
-        let recent_requests = counter.requests
+        let recent_requests = counter
+            .requests
             .iter()
             .filter(|&&time| time > Instant::now() - Duration::from_secs(1))
             .count() as u32;
@@ -148,7 +151,7 @@ impl RateLimiter {
         if recent_requests >= limit.burst_size {
             counter.blocked_requests += 1;
             *self.blocked_count.write().await += 1;
-            
+
             return Ok(RateLimitResult {
                 allowed: false,
                 exceeded: true,
@@ -168,7 +171,9 @@ impl RateLimiter {
             allowed: true,
             exceeded: false,
             limit: limit.requests_per_window,
-            remaining: limit.requests_per_window.saturating_sub(current_requests + 1),
+            remaining: limit
+                .requests_per_window
+                .saturating_sub(current_requests + 1),
             reset_time: counter.last_reset + limit.window_size,
             retry_after: None,
             client_id: client_id.to_string(),
@@ -239,7 +244,7 @@ impl RateLimiter {
     /// 获取客户端统计信息
     pub async fn get_client_stats(&self, client_id: &str) -> Option<ClientStats> {
         let counters = self.counters.read().await;
-        
+
         let mut total_requests = 0;
         let mut blocked_requests = 0;
         let mut endpoints: Vec<String> = Vec::new();
@@ -248,7 +253,7 @@ impl RateLimiter {
             if key.starts_with(&format!("{}:", client_id)) {
                 total_requests += counter.requests.len();
                 blocked_requests += counter.blocked_requests;
-                
+
                 if let Some(endpoint) = key.split(':').nth(1) {
                     endpoints.push(endpoint.to_string());
                 }

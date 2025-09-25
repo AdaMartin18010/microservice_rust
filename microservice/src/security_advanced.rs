@@ -7,15 +7,18 @@
 //! - 安全审计
 //! - 威胁检测
 
+use anyhow::Result;
+use argon2::{
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+    password_hash::{SaltString, rand_core::OsRng},
+};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 use thiserror::Error;
-use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::{rand_core::OsRng, SaltString}};
+use tokio::sync::RwLock;
 
 /// 安全错误类型
 #[derive(Error, Debug)]
@@ -23,22 +26,22 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_ha
 pub enum SecurityError {
     #[error("认证失败: {0}")]
     AuthenticationFailed(String),
-    
+
     #[error("授权失败: {0}")]
     AuthorizationFailed(String),
-    
+
     #[error("令牌无效: {0}")]
     InvalidToken(String),
-    
+
     #[error("令牌过期")]
     TokenExpired,
-    
+
     #[error("权限不足")]
     InsufficientPermissions,
-    
+
     #[error("加密错误: {0}")]
     EncryptionError(String),
-    
+
     #[error("威胁检测: {0}")]
     ThreatDetected(String),
 }
@@ -321,12 +324,18 @@ impl AdvancedSecurityManager {
             zero_trust_policy: Arc::new(RwLock::new(ZeroTrustPolicy::default())),
         }
     }
-    
+
     /// 生成高级JWT令牌
-    pub async fn generate_advanced_jwt(&self, user: &UserIdentity) -> Result<String, SecurityError> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+    pub async fn generate_advanced_jwt(
+        &self,
+        user: &UserIdentity,
+    ) -> Result<String, SecurityError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         let session_id = uuid::Uuid::new_v4().to_string();
-        
+
         let claims = AdvancedJWTClaims {
             sub: user.user_id.clone(),
             iss: "microservice".to_string(),
@@ -340,35 +349,41 @@ impl AdvancedSecurityManager {
             risk_score: user.risk_score,
             session_id,
         };
-        
+
         let header = Header::new(Algorithm::HS256);
         let encoding_key = EncodingKey::from_secret(self.jwt_secret.as_ref());
-        
+
         let token = encode(&header, &claims, &encoding_key)
             .map_err(|e| SecurityError::EncryptionError(e.to_string()))?;
-        
+
         Ok(token)
     }
-    
+
     /// 验证高级JWT令牌
-    pub async fn verify_advanced_jwt(&self, token: &str) -> Result<AdvancedJWTClaims, SecurityError> {
+    pub async fn verify_advanced_jwt(
+        &self,
+        token: &str,
+    ) -> Result<AdvancedJWTClaims, SecurityError> {
         let validation = Validation::new(Algorithm::HS256);
         let decoding_key = DecodingKey::from_secret(self.jwt_secret.as_ref());
-        
+
         let token_data = decode::<AdvancedJWTClaims>(token, &decoding_key, &validation)
             .map_err(|e| SecurityError::InvalidToken(e.to_string()))?;
-        
+
         let claims = token_data.claims;
-        
+
         // 检查令牌是否过期
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         if claims.exp < now {
             return Err(SecurityError::TokenExpired);
         }
-        
+
         Ok(claims)
     }
-    
+
     /// 检查访问权限
     pub async fn check_access_permission(
         &self,
@@ -377,63 +392,65 @@ impl AdvancedSecurityManager {
         permission: PermissionLevel,
     ) -> Result<bool, SecurityError> {
         let policies = self.access_policies.read().await;
-        
+
         for policy in policies.iter() {
             if policy.resource == resource && policy.permission == permission {
                 return Ok(policy.effect == AccessEffect::Allow);
             }
         }
-        
+
         // 默认拒绝
         Ok(false)
     }
-    
+
     /// 密码哈希
     pub async fn hash_password(&self, password: &str) -> Result<String, SecurityError> {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
-        
+
         let password_hash = argon2
             .hash_password(password.as_bytes(), &salt)
             .map_err(|e| SecurityError::EncryptionError(e.to_string()))?;
-        
+
         Ok(password_hash.to_string())
     }
-    
+
     /// 验证密码
     pub async fn verify_password(&self, password: &str, hash: &str) -> Result<bool, SecurityError> {
-        let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| SecurityError::EncryptionError(e.to_string()))?;
-        
+        let parsed_hash =
+            PasswordHash::new(hash).map_err(|e| SecurityError::EncryptionError(e.to_string()))?;
+
         let argon2 = Argon2::default();
-        Ok(argon2.verify_password(password.as_bytes(), &parsed_hash).is_ok())
+        Ok(argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
-    
+
     /// 记录安全审计事件
     pub async fn record_audit_event(&self, event: SecurityAuditEvent) -> Result<(), SecurityError> {
         let mut events = self.audit_events.write().await;
         events.push(event);
-        
+
         // 保持最近1000个事件
         if events.len() > 1000 {
             events.remove(0);
         }
-        
+
         Ok(())
     }
-    
+
     /// 添加访问控制策略
     pub async fn add_access_policy(&self, policy: AccessControlPolicy) {
         let mut policies = self.access_policies.write().await;
         policies.push(policy);
     }
-    
+
     /// 获取审计事件
     pub async fn get_audit_events(&self, limit: usize) -> Vec<SecurityAuditEvent> {
         let events = self.audit_events.read().await;
         events.iter().rev().take(limit).cloned().collect()
     }
-    
+
     /// 更新零信任策略
     pub async fn update_zero_trust_policy(&self, policy: ZeroTrustPolicy) {
         let mut current_policy = self.zero_trust_policy.write().await;
@@ -467,45 +484,55 @@ impl AdvancedSecurityService {
             is_active: true,
             created_at: chrono::Utc::now(),
         };
-        
+
         let mut users = self.users.write().await;
         users.insert("admin".to_string(), admin_user);
-        
+
         // 初始化默认客户端
         let mut clients = self.oauth2_clients.write().await;
         clients.insert("default_client".to_string(), "default_secret".to_string());
-        
+
         // 初始化默认证书
         let mut certs = self.certificates.write().await;
-        certs.insert("default_cert".to_string(), Certificate {
-            common_name: "localhost".to_string(),
-            issuer: "Self-Signed".to_string(),
-            not_before: chrono::Utc::now(),
-            not_after: chrono::Utc::now() + chrono::Duration::days(365),
-            fingerprint: "mock_fingerprint".to_string(),
-            is_valid: true,
-        });
-        
+        certs.insert(
+            "default_cert".to_string(),
+            Certificate {
+                common_name: "localhost".to_string(),
+                issuer: "Self-Signed".to_string(),
+                not_before: chrono::Utc::now(),
+                not_after: chrono::Utc::now() + chrono::Duration::days(365),
+                fingerprint: "mock_fingerprint".to_string(),
+                is_valid: true,
+            },
+        );
+
         // 初始化默认安全策略
         let mut policies = self.security_policies.write().await;
-        policies.insert("default_policy".to_string(), SecurityPolicy {
-            id: "default_policy".to_string(),
-            name: "默认安全策略".to_string(),
-            description: "默认的安全策略".to_string(),
-            is_active: true,
-            rules: vec![SecurityRule {
-                id: "rule1".to_string(),
-                action: "access".to_string(),
-                resource: "/api/*".to_string(),
-                effect: AccessEffect::Allow,
-                conditions: vec!["authenticated".to_string()],
-            }],
-        });
-        
+        policies.insert(
+            "default_policy".to_string(),
+            SecurityPolicy {
+                id: "default_policy".to_string(),
+                name: "默认安全策略".to_string(),
+                description: "默认的安全策略".to_string(),
+                is_active: true,
+                rules: vec![SecurityRule {
+                    id: "rule1".to_string(),
+                    action: "access".to_string(),
+                    resource: "/api/*".to_string(),
+                    effect: AccessEffect::Allow,
+                    conditions: vec!["authenticated".to_string()],
+                }],
+            },
+        );
+
         Ok(())
     }
 
-    pub async fn authenticate_user(&self, username: &str, password: &str) -> Result<Option<AccessToken>> {
+    pub async fn authenticate_user(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<Option<AccessToken>> {
         if username == "admin" && password == "password" {
             let token = AccessToken {
                 token: "mock_jwt_token".to_string(),
@@ -520,7 +547,12 @@ impl AdvancedSecurityService {
         }
     }
 
-    pub async fn check_permission(&self, _user_id: &str, _resource: &str, _action: &str) -> Result<bool> {
+    pub async fn check_permission(
+        &self,
+        _user_id: &str,
+        _resource: &str,
+        _action: &str,
+    ) -> Result<bool> {
         // 模拟权限检查
         Ok(true)
     }
@@ -567,7 +599,10 @@ impl AdvancedSecurityService {
     ) -> Result<String> {
         let auth_code = format!("auth_code_{}_{}", client_id, user_id);
         let mut codes = self.auth_codes.write().await;
-        codes.insert(auth_code.clone(), (client_id.to_string(), redirect_uri.to_string(), scope));
+        codes.insert(
+            auth_code.clone(),
+            (client_id.to_string(), redirect_uri.to_string(), scope),
+        );
         Ok(auth_code)
     }
 
@@ -578,37 +613,45 @@ impl AdvancedSecurityService {
         client_secret: &str,
     ) -> Result<Option<AccessToken>> {
         let clients = self.oauth2_clients.read().await;
-        if let Some(secret) = clients.get(client_id) {
-            if secret == client_secret {
-                let token = AccessToken {
-                    token: format!("oauth2_token_{}", auth_code),
-                    token_type: "Bearer".to_string(),
-                    expires_in: self.config.jwt_expiry,
-                    scope: vec!["read".to_string(), "write".to_string()],
-                    refresh_token: Some(format!("oauth2_refresh_{}", auth_code)),
-                };
-                return Ok(Some(token));
-            }
+        if let Some(secret) = clients.get(client_id)
+            && secret == client_secret
+        {
+            let token = AccessToken {
+                token: format!("oauth2_token_{}", auth_code),
+                token_type: "Bearer".to_string(),
+                expires_in: self.config.jwt_expiry,
+                scope: vec!["read".to_string(), "write".to_string()],
+                refresh_token: Some(format!("oauth2_refresh_{}", auth_code)),
+            };
+            return Ok(Some(token));
         }
         Ok(None)
     }
 
     pub async fn assign_user_role(&self, user_id: &str, role: Role) -> Result<()> {
         let mut user_roles = self.user_roles.write().await;
-        let roles = user_roles.entry(user_id.to_string()).or_insert_with(Vec::new);
+        let roles = user_roles
+            .entry(user_id.to_string())
+            .or_insert_with(Vec::new);
         if !roles.contains(&role) {
             roles.push(role);
         }
         Ok(())
     }
 
-    pub async fn check_user_permission(&self, user_id: &str, permission: &Permission) -> Result<bool> {
+    pub async fn check_user_permission(
+        &self,
+        user_id: &str,
+        permission: &Permission,
+    ) -> Result<bool> {
         let user_roles = self.user_roles.read().await;
         if let Some(roles) = user_roles.get(user_id) {
             // 模拟权限检查逻辑
             match permission {
                 Permission::Read => Ok(true),
-                Permission::Write => Ok(roles.contains(&Role::Moderator) || roles.contains(&Role::Admin)),
+                Permission::Write => {
+                    Ok(roles.contains(&Role::Moderator) || roles.contains(&Role::Admin))
+                }
                 Permission::Admin => Ok(roles.contains(&Role::Admin)),
                 Permission::UserManagement => Ok(roles.contains(&Role::Admin)),
                 _ => Ok(false),
@@ -620,7 +663,9 @@ impl AdvancedSecurityService {
 
     pub async fn check_user_role(&self, user_id: &str, role: &Role) -> Result<bool> {
         let user_roles = self.user_roles.read().await;
-        Ok(user_roles.get(user_id).map_or(false, |roles| roles.contains(role)))
+        Ok(user_roles
+            .get(user_id)
+            .is_some_and(|roles| roles.contains(role)))
     }
 
     pub async fn remove_user_role(&self, user_id: &str, role: &Role) -> Result<()> {
@@ -643,20 +688,20 @@ impl AdvancedSecurityService {
 
     pub async fn get_security_events(&self, _limit: Option<usize>) -> Vec<SecurityEvent> {
         // 模拟安全事件
-        vec![
-            SecurityEvent {
-                event_type: EventType::Authentication,
-                action: "login".to_string(),
-                resource: "/api/auth/login".to_string(),
-                result: EventResult::Success,
-                user_id: Some("admin".to_string()),
-                timestamp: chrono::Utc::now(),
-                metadata: std::collections::HashMap::new(),
-            }
-        ]
+        vec![SecurityEvent {
+            event_type: EventType::Authentication,
+            action: "login".to_string(),
+            resource: "/api/auth/login".to_string(),
+            result: EventResult::Success,
+            user_id: Some("admin".to_string()),
+            timestamp: chrono::Utc::now(),
+            metadata: std::collections::HashMap::new(),
+        }]
     }
 
-    pub async fn get_security_policies(&self) -> Result<std::collections::HashMap<String, SecurityPolicy>> {
+    pub async fn get_security_policies(
+        &self,
+    ) -> Result<std::collections::HashMap<String, SecurityPolicy>> {
         let policies = self.security_policies.read().await;
         Ok(policies.clone())
     }
@@ -669,11 +714,11 @@ impl AdvancedSecurityService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_advanced_security_manager() {
         let manager = AdvancedSecurityManager::new("test-secret".to_string());
-        
+
         let user = UserIdentity {
             user_id: "user1".to_string(),
             username: "testuser".to_string(),
@@ -684,22 +729,22 @@ mod tests {
             ip_address: "127.0.0.1".to_string(),
             risk_score: 0.1,
         };
-        
+
         let token = manager.generate_advanced_jwt(&user).await.unwrap();
         let claims = manager.verify_advanced_jwt(&token).await.unwrap();
-        
+
         assert_eq!(claims.sub, "user1");
         assert_eq!(claims.roles, vec!["user"]);
     }
-    
+
     #[tokio::test]
     async fn test_password_hashing() {
         let manager = AdvancedSecurityManager::new("test-secret".to_string());
-        
+
         let password = "test-password";
         let hash = manager.hash_password(password).await.unwrap();
         let is_valid = manager.verify_password(password, &hash).await.unwrap();
-        
+
         assert!(is_valid);
     }
 }

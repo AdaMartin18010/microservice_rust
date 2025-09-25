@@ -2,9 +2,9 @@
 //!
 //! 提供服务注册、发现和健康检查功能
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// 服务发现器
@@ -24,7 +24,10 @@ impl ServiceDiscovery {
     }
 
     /// 注册服务实例
-    pub async fn register_service(&mut self, service: ServiceInstance) -> Result<(), DiscoveryError> {
+    pub async fn register_service(
+        &mut self,
+        service: ServiceInstance,
+    ) -> Result<(), DiscoveryError> {
         self.registry.register_service(service).await
     }
 
@@ -34,12 +37,18 @@ impl ServiceDiscovery {
     }
 
     /// 发现服务实例
-    pub async fn discover_services(&mut self, service_name: &str) -> Result<Vec<ServiceInstance>, DiscoveryError> {
+    pub async fn discover_services(
+        &mut self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceInstance>, DiscoveryError> {
         self.registry.discover_services(service_name).await
     }
 
     /// 获取服务健康状态
-    pub async fn get_service_health(&mut self, service_name: &str) -> Result<Vec<ServiceHealth>, DiscoveryError> {
+    pub async fn get_service_health(
+        &mut self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceHealth>, DiscoveryError> {
         self.registry.get_service_health(service_name).await
     }
 
@@ -83,10 +92,13 @@ impl ServiceRegistry {
     }
 
     /// 注册服务实例
-    pub async fn register_service(&mut self, service: ServiceInstance) -> Result<(), DiscoveryError> {
+    pub async fn register_service(
+        &mut self,
+        service: ServiceInstance,
+    ) -> Result<(), DiscoveryError> {
         let service_name = service.name.clone();
-        let services = self.services.entry(service_name.clone()).or_insert_with(Vec::new);
-        
+        let services = self.services.entry(service_name.clone()).or_default();
+
         // 检查是否已存在相同ID的实例
         if let Some(existing_index) = services.iter().position(|s| s.id == service.id) {
             let service_id = service.id.clone();
@@ -104,7 +116,7 @@ impl ServiceRegistry {
     /// 注销服务实例
     pub async fn unregister_service(&mut self, service_id: &str) -> Result<(), DiscoveryError> {
         let mut removed = false;
-        
+
         for (_, services) in self.services.iter_mut() {
             if let Some(index) = services.iter().position(|s| s.id == service_id) {
                 services.remove(index);
@@ -122,10 +134,11 @@ impl ServiceRegistry {
     }
 
     /// 发现服务实例
-    pub async fn discover_services(&self, service_name: &str) -> Result<Vec<ServiceInstance>, DiscoveryError> {
-        let services = self.services.get(service_name)
-            .cloned()
-            .unwrap_or_default();
+    pub async fn discover_services(
+        &self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceInstance>, DiscoveryError> {
+        let services = self.services.get(service_name).cloned().unwrap_or_default();
 
         if services.is_empty() {
             return Err(DiscoveryError::ServiceNotFound(service_name.to_string()));
@@ -135,7 +148,10 @@ impl ServiceRegistry {
     }
 
     /// 获取服务健康状态
-    pub async fn get_service_health(&self, service_name: &str) -> Result<Vec<ServiceHealth>, DiscoveryError> {
+    pub async fn get_service_health(
+        &self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceHealth>, DiscoveryError> {
         let instances = self.discover_services(service_name).await?;
         let mut health_status = Vec::new();
 
@@ -220,12 +236,7 @@ pub struct ServiceInstance {
 
 impl ServiceInstance {
     /// 创建新的服务实例
-    pub fn new(
-        id: String,
-        name: String,
-        host: String,
-        port: u16,
-    ) -> Self {
+    pub fn new(id: String, name: String, host: String, port: u16) -> Self {
         let now = SystemTime::now();
         Self {
             id,
@@ -314,17 +325,21 @@ impl HealthCheck {
     /// 检查服务健康状态
     pub async fn check_health(&self, instance: &ServiceInstance) -> ServiceHealth {
         let start_time = SystemTime::now();
-        
+
         // 这里简化处理，实际应用中应该发送HTTP请求
         let healthy = true; // 模拟健康检查结果
         let response_time = start_time.elapsed().unwrap_or_default();
-        
+
         ServiceHealth {
             service_id: instance.id.clone(),
             healthy,
             last_check: start_time,
             response_time,
-            error_message: if healthy { None } else { Some("Health check failed".to_string()) },
+            error_message: if healthy {
+                None
+            } else {
+                Some("Health check failed".to_string())
+            },
         }
     }
 }

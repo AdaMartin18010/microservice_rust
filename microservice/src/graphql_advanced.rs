@@ -8,17 +8,16 @@
 //! - 类型安全
 //! - 性能监控
 
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[cfg(feature = "with-graphql")]
 use async_graphql::{
-    Schema, EmptySubscription, EmptyMutation, Object, Context, SimpleObject, InputObject,
-    ID, ScalarType, Value, async_trait, SchemaBuilder, MergedObject, Subscription,
-    futures_util::Stream,
+    Context, EmptyMutation, EmptySubscription, ID, InputObject, MergedObject, Object, ScalarType,
+    Schema, SchemaBuilder, SimpleObject, Subscription, Value, async_trait, futures_util::Stream,
 };
 
 /// GraphQL 配置
@@ -155,7 +154,9 @@ impl ScalarType for OrderStatus {
                 "CANCELLED" => Ok(OrderStatus::Cancelled),
                 _ => Err(async_graphql::InputValueError::custom("无效的订单状态")),
             },
-            _ => Err(async_graphql::InputValueError::custom("订单状态必须是字符串")),
+            _ => Err(async_graphql::InputValueError::custom(
+                "订单状态必须是字符串",
+            )),
         }
     }
 }
@@ -200,31 +201,38 @@ impl DataStore {
         // 初始化测试数据
         for i in 1..=100 {
             let user_id = format!("user_{}", i);
-            users.insert(user_id.clone(), User {
-                id: async_graphql::ID::from(user_id.clone()),
-                name: format!("User {}", i),
-                email: format!("user{}@example.com", i),
-                age: Some(20 + (i % 50)),
-                created_at: chrono::Utc::now().to_rfc3339(),
-                updated_at: chrono::Utc::now().to_rfc3339(),
-            });
+            users.insert(
+                user_id.clone(),
+                User {
+                    id: async_graphql::ID::from(user_id.clone()),
+                    name: format!("User {}", i),
+                    email: format!("user{}@example.com", i),
+                    age: Some(20 + (i % 50)),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                    updated_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
 
             let product_id = format!("product_{}", i);
-            products.insert(product_id.clone(), Product {
-                id: async_graphql::ID::from(product_id.clone()),
-                name: format!("Product {}", i),
-                description: Some(format!("这是产品 {} 的描述", i)),
-                price: 10.0 + (i as f64 * 0.5),
-                category: match i % 5 {
-                    0 => "Electronics",
-                    1 => "Books",
-                    2 => "Clothing",
-                    3 => "Home",
-                    _ => "Sports",
-                }.to_string(),
-                stock: 100 - (i % 50),
-                created_at: chrono::Utc::now().to_rfc3339(),
-            });
+            products.insert(
+                product_id.clone(),
+                Product {
+                    id: async_graphql::ID::from(product_id.clone()),
+                    name: format!("Product {}", i),
+                    description: Some(format!("这是产品 {} 的描述", i)),
+                    price: 10.0 + (i as f64 * 0.5),
+                    category: match i % 5 {
+                        0 => "Electronics",
+                        1 => "Books",
+                        2 => "Clothing",
+                        3 => "Home",
+                        _ => "Sports",
+                    }
+                    .to_string(),
+                    stock: 100 - (i % 50),
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+            );
         }
 
         Self {
@@ -243,19 +251,16 @@ impl DataStore {
         let users = self.users.read().await;
         let limit = limit.unwrap_or(10) as usize;
         let offset = offset.unwrap_or(0) as usize;
-        
-        users.values()
-            .skip(offset)
-            .take(limit)
-            .cloned()
-            .collect()
+
+        users.values().skip(offset).take(limit).cloned().collect()
     }
 
     pub async fn search_users(&self, query: &str, limit: Option<i32>) -> Vec<User> {
         let users = self.users.read().await;
         let limit = limit.unwrap_or(10) as usize;
-        
-        users.values()
+
+        users
+            .values()
             .filter(|user| user.name.contains(query) || user.email.contains(query))
             .take(limit)
             .cloned()
@@ -265,7 +270,7 @@ impl DataStore {
     pub async fn create_user(&self, input: UserInput) -> User {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
-        
+
         let user = User {
             id: async_graphql::ID::from(id.clone()),
             name: input.name,
@@ -312,8 +317,9 @@ impl DataStore {
     pub async fn get_products(&self, category: Option<&str>, limit: Option<i32>) -> Vec<Product> {
         let products = self.products.read().await;
         let limit = limit.unwrap_or(10) as usize;
-        
-        let filtered: Vec<Product> = products.values()
+
+        let filtered: Vec<Product> = products
+            .values()
             .filter(|product| {
                 if let Some(cat) = category {
                     product.category == cat
@@ -324,7 +330,7 @@ impl DataStore {
             .take(limit)
             .cloned()
             .collect();
-        
+
         filtered
     }
 
@@ -335,7 +341,8 @@ impl DataStore {
 
     pub async fn get_user_orders(&self, user_id: &str) -> Vec<Order> {
         let orders = self.orders.read().await;
-        orders.values()
+        orders
+            .values()
             .filter(|order| order.user_id == async_graphql::ID::from(user_id))
             .cloned()
             .collect()
@@ -358,12 +365,12 @@ impl DataLoader {
 
     pub async fn load_users(&self, ids: Vec<String>) -> HashMap<String, Option<User>> {
         let mut result = HashMap::new();
-        
+
         for id in ids {
             let user = self.data_store.get_user(&id).await;
             result.insert(id, user);
         }
-        
+
         result
     }
 
@@ -373,12 +380,12 @@ impl DataLoader {
 
     pub async fn load_products(&self, ids: Vec<String>) -> HashMap<String, Option<Product>> {
         let mut result = HashMap::new();
-        
+
         for id in ids {
             let product = self.data_store.get_product(&id).await;
             result.insert(id, product);
         }
-        
+
         result
     }
 }
@@ -391,7 +398,12 @@ pub struct QueryRoot;
 #[Object]
 impl QueryRoot {
     /// 获取所有用户
-    async fn users(&self, ctx: &Context<'_>, limit: Option<i32>, offset: Option<i32>) -> async_graphql::Result<Vec<User>> {
+    async fn users(
+        &self,
+        ctx: &Context<'_>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+    ) -> async_graphql::Result<Vec<User>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let users = data_store.get_users(limit, offset).await;
         Ok(users)
@@ -405,37 +417,55 @@ impl QueryRoot {
     }
 
     /// 搜索用户
-    async fn search_users(&self, ctx: &Context<'_>, input: SearchInput) -> async_graphql::Result<Vec<User>> {
+    async fn search_users(
+        &self,
+        ctx: &Context<'_>,
+        input: SearchInput,
+    ) -> async_graphql::Result<Vec<User>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let users = data_store.search_users(&input.query, input.limit).await;
         Ok(users)
     }
 
     /// 分页获取用户
-    async fn users_connection(&self, ctx: &Context<'_>, first: Option<i32>, after: Option<String>) -> async_graphql::Result<UserConnection> {
+    async fn users_connection(
+        &self,
+        ctx: &Context<'_>,
+        first: Option<i32>,
+        after: Option<String>,
+    ) -> async_graphql::Result<UserConnection> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let first = first.unwrap_or(10);
         let after = after.unwrap_or("0".to_string());
         let offset = after.parse::<i32>().unwrap_or(0);
-        
+
         let users = data_store.get_users(Some(first), Some(offset)).await;
         let total_count = data_store.users.read().await.len() as i32;
-        
-        let edges: Vec<UserEdge> = users.into_iter()
+
+        let edges: Vec<UserEdge> = users
+            .into_iter()
             .enumerate()
             .map(|(i, user)| UserEdge {
                 node: user,
                 cursor: (offset + i as i32 + 1).to_string(),
             })
             .collect();
-        
+
         let page_info = PageInfo {
             has_next_page: offset + first < total_count,
             has_previous_page: offset > 0,
-            start_cursor: if edges.is_empty() { None } else { Some(edges.first().unwrap().cursor.clone()) },
-            end_cursor: if edges.is_empty() { None } else { Some(edges.last().unwrap().cursor.clone()) },
+            start_cursor: if edges.is_empty() {
+                None
+            } else {
+                Some(edges.first().unwrap().cursor.clone())
+            },
+            end_cursor: if edges.is_empty() {
+                None
+            } else {
+                Some(edges.last().unwrap().cursor.clone())
+            },
         };
-        
+
         Ok(UserConnection {
             edges,
             page_info,
@@ -444,7 +474,12 @@ impl QueryRoot {
     }
 
     /// 获取所有产品
-    async fn products(&self, ctx: &Context<'_>, category: Option<String>, limit: Option<i32>) -> async_graphql::Result<Vec<Product>> {
+    async fn products(
+        &self,
+        ctx: &Context<'_>,
+        category: Option<String>,
+        limit: Option<i32>,
+    ) -> async_graphql::Result<Vec<Product>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let products = data_store.get_products(category.as_deref(), limit).await;
         Ok(products)
@@ -465,7 +500,11 @@ impl QueryRoot {
     }
 
     /// 获取用户的订单
-    async fn user_orders(&self, ctx: &Context<'_>, user_id: ID) -> async_graphql::Result<Vec<Order>> {
+    async fn user_orders(
+        &self,
+        ctx: &Context<'_>,
+        user_id: ID,
+    ) -> async_graphql::Result<Vec<Order>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let orders = data_store.get_user_orders(user_id.as_str()).await;
         Ok(orders)
@@ -504,14 +543,23 @@ pub struct MutationRoot;
 #[Object]
 impl MutationRoot {
     /// 创建用户
-    async fn create_user(&self, ctx: &Context<'_>, input: UserInput) -> async_graphql::Result<User> {
+    async fn create_user(
+        &self,
+        ctx: &Context<'_>,
+        input: UserInput,
+    ) -> async_graphql::Result<User> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let user = data_store.create_user(input).await;
         Ok(user)
     }
 
     /// 更新用户
-    async fn update_user(&self, ctx: &Context<'_>, id: ID, input: UserUpdateInput) -> async_graphql::Result<Option<User>> {
+    async fn update_user(
+        &self,
+        ctx: &Context<'_>,
+        id: ID,
+        input: UserUpdateInput,
+    ) -> async_graphql::Result<Option<User>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let user = data_store.update_user(id.as_str(), input).await;
         Ok(user)
@@ -525,28 +573,36 @@ impl MutationRoot {
     }
 
     /// 批量创建用户
-    async fn create_users(&self, ctx: &Context<'_>, inputs: Vec<UserInput>) -> async_graphql::Result<Vec<User>> {
+    async fn create_users(
+        &self,
+        ctx: &Context<'_>,
+        inputs: Vec<UserInput>,
+    ) -> async_graphql::Result<Vec<User>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let mut users = Vec::new();
-        
+
         for input in inputs {
             let user = data_store.create_user(input).await;
             users.push(user);
         }
-        
+
         Ok(users)
     }
 
     /// 批量更新用户
-    async fn update_users(&self, ctx: &Context<'_>, updates: Vec<(ID, UserUpdateInput)>) -> async_graphql::Result<Vec<Option<User>>> {
+    async fn update_users(
+        &self,
+        ctx: &Context<'_>,
+        updates: Vec<(ID, UserUpdateInput)>,
+    ) -> async_graphql::Result<Vec<Option<User>>> {
         let data_store = ctx.data_unchecked::<Arc<DataStore>>();
         let mut results = Vec::new();
-        
+
         for (id, input) in updates {
             let user = data_store.update_user(id.as_str(), input).await;
             results.push(user);
         }
-        
+
         Ok(results)
     }
 }
@@ -646,7 +702,10 @@ impl GraphQLService {
 
     /// 执行 GraphQL 查询
     #[cfg(feature = "with-graphql")]
-    pub async fn execute_query(&self, query: &str) -> async_graphql::Result<async_graphql::Response> {
+    pub async fn execute_query(
+        &self,
+        query: &str,
+    ) -> async_graphql::Result<async_graphql::Response> {
         self.schema.execute(query).await
     }
 
@@ -657,7 +716,9 @@ impl GraphQLService {
         query: &str,
         variables: async_graphql::Variables,
     ) -> async_graphql::Result<async_graphql::Response> {
-        self.schema.execute(async_graphql::Request::new(query).variables(variables)).await
+        self.schema
+            .execute(async_graphql::Request::new(query).variables(variables))
+            .await
     }
 
     /// 获取 Schema SDL
@@ -766,7 +827,7 @@ mod tests {
     async fn test_data_loader() {
         let data_store = Arc::new(DataStore::new());
         let data_loader = DataLoader::new(data_store.clone());
-        
+
         let user = data_loader.load_user("user_1").await;
         assert!(user.is_some());
     }

@@ -1,0 +1,23 @@
+{
+  "spec": "MessageQueueVerification",
+  "constants": {
+    "MaxMessages": 10,
+    "MaxRetries": 3
+  },
+  "invariants": [
+    "TypeOK",
+    "NoMessageLoss",
+    "NoDuplicateProcessing",
+    "RetryCountBounded"
+  ],
+  "temporal": [
+    "FailedMessagesEventuallyRetry"
+  ],
+  "length": 40,
+  "tuning": {
+    "search": {
+      "strategy": "bfs",
+      "maxDepth": 80
+    }
+  }
+}

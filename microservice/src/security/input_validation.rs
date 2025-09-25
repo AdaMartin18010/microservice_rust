@@ -2,8 +2,8 @@
 //!
 //! 提供输入验证、清理和安全检查功能
 
-use std::collections::HashMap;
 use regex::Regex;
+use std::collections::HashMap;
 // serde imports removed as they are not used
 use thiserror::Error;
 
@@ -16,6 +16,12 @@ pub struct InputValidator {
     sql_injection_protection: SqlInjectionProtection,
 }
 
+impl Default for InputValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InputValidator {
     /// 创建新的输入验证器
     pub fn new() -> Self {
@@ -25,7 +31,7 @@ impl InputValidator {
             xss_protection: XssProtection::new(),
             sql_injection_protection: SqlInjectionProtection::new(),
         };
-        
+
         validator.add_default_rules();
         validator.add_default_sanitizers();
         validator
@@ -107,7 +113,10 @@ impl InputValidator {
     }
 
     /// 验证输入数据
-    pub fn validate(&self, input: &ValidationInput) -> Result<ValidationResult, InputValidationError> {
+    pub fn validate(
+        &self,
+        input: &ValidationInput,
+    ) -> Result<ValidationResult, InputValidationError> {
         let mut result = ValidationResult::new();
 
         // 验证每个字段
@@ -159,12 +168,12 @@ impl InputValidator {
         }
 
         // XSS检查
-        if let Err(e) = self.xss_protection.check(&input) {
+        if let Err(e) = self.xss_protection.check(input) {
             result.add_error("xss".to_string(), e);
         }
 
         // SQL注入检查
-        if let Err(e) = self.sql_injection_protection.check(&input) {
+        if let Err(e) = self.sql_injection_protection.check(input) {
             result.add_error("sql_injection".to_string(), e);
         }
 
@@ -176,7 +185,11 @@ impl InputValidator {
     }
 
     /// 验证字段
-    fn validate_field(&self, field_name: &str, value: &str) -> Result<FieldValidationResult, InputValidationError> {
+    fn validate_field(
+        &self,
+        field_name: &str,
+        value: &str,
+    ) -> Result<FieldValidationResult, InputValidationError> {
         let mut sanitized_value = value.to_string();
 
         // 应用清理器
@@ -186,13 +199,11 @@ impl InputValidator {
 
         // 应用验证规则
         for rule in &self.rules {
-            if rule.matches_field(field_name) {
-                if !rule.validate(&sanitized_value) {
-                    return Err(InputValidationError::RuleViolation(
-                        rule.name.clone(),
-                        format!("字段 {} 不满足规则 {}", field_name, rule.name)
-                    ));
-                }
+            if rule.matches_field(field_name) && !rule.validate(&sanitized_value) {
+                return Err(InputValidationError::RuleViolation(
+                    rule.name.clone(),
+                    format!("字段 {} 不满足规则 {}", field_name, rule.name),
+                ));
             }
         }
 
@@ -206,7 +217,11 @@ impl InputValidator {
     }
 
     /// 验证查询参数
-    fn validate_query_param(&self, param_name: &str, value: &str) -> Result<ParamValidationResult, InputValidationError> {
+    fn validate_query_param(
+        &self,
+        param_name: &str,
+        value: &str,
+    ) -> Result<ParamValidationResult, InputValidationError> {
         let mut sanitized_value = value.to_string();
 
         // 应用清理器
@@ -216,9 +231,10 @@ impl InputValidator {
 
         // 检查长度限制
         if sanitized_value.len() > 1000 {
-            return Err(InputValidationError::LengthExceeded(
-                format!("查询参数 {} 长度超过限制", param_name)
-            ));
+            return Err(InputValidationError::LengthExceeded(format!(
+                "查询参数 {} 长度超过限制",
+                param_name
+            )));
         }
 
         Ok(ParamValidationResult {
@@ -230,7 +246,11 @@ impl InputValidator {
     }
 
     /// 验证路径参数
-    fn validate_path_param(&self, param_name: &str, value: &str) -> Result<ParamValidationResult, InputValidationError> {
+    fn validate_path_param(
+        &self,
+        param_name: &str,
+        value: &str,
+    ) -> Result<ParamValidationResult, InputValidationError> {
         let mut sanitized_value = value.to_string();
 
         // 应用清理器
@@ -240,9 +260,10 @@ impl InputValidator {
 
         // 检查路径遍历
         if sanitized_value.contains("..") || sanitized_value.contains("\\") {
-            return Err(InputValidationError::PathTraversal(
-                format!("路径参数 {} 包含路径遍历字符", param_name)
-            ));
+            return Err(InputValidationError::PathTraversal(format!(
+                "路径参数 {} 包含路径遍历字符",
+                param_name
+            )));
         }
 
         Ok(ParamValidationResult {
@@ -256,9 +277,10 @@ impl InputValidator {
     /// 验证请求体
     fn validate_body(&self, body: &str) -> Result<BodyValidationResult, InputValidationError> {
         // 检查大小限制
-        if body.len() > 10 * 1024 * 1024 { // 10MB
+        if body.len() > 10 * 1024 * 1024 {
+            // 10MB
             return Err(InputValidationError::BodyTooLarge(
-                "请求体大小超过10MB限制".to_string()
+                "请求体大小超过10MB限制".to_string(),
             ));
         }
 
@@ -309,10 +331,22 @@ impl ValidationRule {
     pub fn matches_field(&self, field_name: &str) -> bool {
         match &self.validation_type {
             ValidationType::Email => field_name.to_lowercase().contains("email"),
-            ValidationType::Username => field_name.to_lowercase().contains("username") || field_name.to_lowercase().contains("user"),
-            ValidationType::Password => field_name.to_lowercase().contains("password") || field_name.to_lowercase().contains("pass"),
-            ValidationType::Url => field_name.to_lowercase().contains("url") || field_name.to_lowercase().contains("link"),
-            ValidationType::Phone => field_name.to_lowercase().contains("phone") || field_name.to_lowercase().contains("mobile"),
+            ValidationType::Username => {
+                field_name.to_lowercase().contains("username")
+                    || field_name.to_lowercase().contains("user")
+            }
+            ValidationType::Password => {
+                field_name.to_lowercase().contains("password")
+                    || field_name.to_lowercase().contains("pass")
+            }
+            ValidationType::Url => {
+                field_name.to_lowercase().contains("url")
+                    || field_name.to_lowercase().contains("link")
+            }
+            ValidationType::Phone => {
+                field_name.to_lowercase().contains("phone")
+                    || field_name.to_lowercase().contains("mobile")
+            }
             ValidationType::Custom => true,
         }
     }
@@ -350,7 +384,12 @@ pub struct Sanitizer {
 
 impl Sanitizer {
     /// 创建新的清理器
-    pub fn new(name: String, pattern: String, replacement: String, sanitization_type: SanitizationType) -> Self {
+    pub fn new(
+        name: String,
+        pattern: String,
+        replacement: String,
+        sanitization_type: SanitizationType,
+    ) -> Self {
         let regex = Regex::new(&pattern).ok();
         Self {
             name,
@@ -366,12 +405,14 @@ impl Sanitizer {
         if let Some(ref regex) = self.regex {
             match self.sanitization_type {
                 SanitizationType::Remove => regex.replace_all(value, "").to_string(),
-                SanitizationType::Replace => regex.replace_all(value, &self.replacement).to_string(),
-                SanitizationType::Escape => {
-                    regex.replace_all(value, |caps: &regex::Captures| {
-                        format!("&#x{:x};", caps[0].chars().next().unwrap() as u32)
-                    }).to_string()
+                SanitizationType::Replace => {
+                    regex.replace_all(value, &self.replacement).to_string()
                 }
+                SanitizationType::Escape => regex
+                    .replace_all(value, |caps: &regex::Captures| {
+                        format!("&#x{:x};", caps[0].chars().next().unwrap() as u32)
+                    })
+                    .to_string(),
             }
         } else {
             value.to_string()
@@ -391,6 +432,12 @@ pub enum SanitizationType {
 #[derive(Debug)]
 pub struct XssProtection {
     patterns: Vec<Regex>,
+}
+
+impl Default for XssProtection {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl XssProtection {
@@ -426,11 +473,11 @@ impl XssProtection {
     /// 检查XSS
     pub fn check(&self, input: &ValidationInput) -> Result<(), InputValidationError> {
         let content = format!("{}", input);
-        
+
         for pattern in &self.patterns {
             if pattern.is_match(&content) {
                 return Err(InputValidationError::XssDetected(
-                    "检测到潜在的XSS攻击".to_string()
+                    "检测到潜在的XSS攻击".to_string(),
                 ));
             }
         }
@@ -443,6 +490,12 @@ impl XssProtection {
 #[derive(Debug)]
 pub struct SqlInjectionProtection {
     patterns: Vec<Regex>,
+}
+
+impl Default for SqlInjectionProtection {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SqlInjectionProtection {
@@ -477,11 +530,11 @@ impl SqlInjectionProtection {
     /// 检查SQL注入
     pub fn check(&self, input: &ValidationInput) -> Result<(), InputValidationError> {
         let content = format!("{}", input);
-        
+
         for pattern in &self.patterns {
             if pattern.is_match(&content) {
                 return Err(InputValidationError::SqlInjectionDetected(
-                    "检测到潜在的SQL注入攻击".to_string()
+                    "检测到潜在的SQL注入攻击".to_string(),
                 ));
             }
         }
@@ -503,31 +556,31 @@ pub struct ValidationInput {
 impl std::fmt::Display for ValidationInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut content = String::new();
-        
-        for (_, value) in &self.fields {
+
+        for value in self.fields.values() {
             content.push_str(value);
             content.push(' ');
         }
-        
-        for (_, value) in &self.query_params {
+
+        for value in self.query_params.values() {
             content.push_str(value);
             content.push(' ');
         }
-        
-        for (_, value) in &self.path_params {
+
+        for value in self.path_params.values() {
             content.push_str(value);
             content.push(' ');
         }
-        
-        for (_, value) in &self.headers {
+
+        for value in self.headers.values() {
             content.push_str(value);
             content.push(' ');
         }
-        
+
         if let Some(ref body) = self.body {
             content.push_str(body);
         }
-        
+
         write!(f, "{}", content)
     }
 }
@@ -540,6 +593,12 @@ pub struct ValidationResult {
     pub path_param_results: HashMap<String, ParamValidationResult>,
     pub body_result: Option<BodyValidationResult>,
     pub errors: HashMap<String, InputValidationError>,
+}
+
+impl Default for ValidationResult {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ValidationResult {

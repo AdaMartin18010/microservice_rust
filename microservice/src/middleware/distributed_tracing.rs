@@ -9,8 +9,8 @@ use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
 use crate::opentelemetry::{
-    TraceContext, TraceContextManager, TraceContextPropagator, Tracer, Span, SpanStatus,
-    OpenTelemetryManager,
+    OpenTelemetryManager, Span, SpanStatus, TraceContext, TraceContextManager,
+    TraceContextPropagator, Tracer,
 };
 
 /// 分布式追踪中间件配置
@@ -32,7 +32,7 @@ impl Default for DistributedTracingConfig {
             enabled: true,
             service_name: "microservice".to_string(),
             service_version: "1.0.0".to_string(),
-            sample_rate: 1.0, // 100% 采样
+            sample_rate: 1.0,                            // 100% 采样
             max_span_duration: Duration::from_secs(300), // 5分钟
             enable_baggage: true,
             enable_correlation_id: true,
@@ -98,7 +98,10 @@ impl DistributedTracingMiddleware {
     }
 
     /// 从HTTP头部提取追踪上下文
-    pub fn extract_trace_context(&mut self, headers: &HashMap<String, String>) -> Option<TraceContext> {
+    pub fn extract_trace_context(
+        &mut self,
+        headers: &HashMap<String, String>,
+    ) -> Option<TraceContext> {
         if !self.config.enabled {
             return None;
         }
@@ -129,18 +132,22 @@ impl DistributedTracingMiddleware {
 
         // 创建新的跨度
         let mut span = self.tracer.start_span(operation_name.to_string())?;
-        
+
         // 添加服务信息
         span.add_attribute("service.name".to_string(), self.config.service_name.clone());
-        span.add_attribute("service.version".to_string(), self.config.service_version.clone());
-        
+        span.add_attribute(
+            "service.version".to_string(),
+            self.config.service_version.clone(),
+        );
+
         // 添加操作开始时间
-        span.add_attribute("operation.start_time".to_string(), 
+        span.add_attribute(
+            "operation.start_time".to_string(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis()
-                .to_string()
+                .to_string(),
         );
 
         Some(span)
@@ -159,12 +166,13 @@ impl DistributedTracingMiddleware {
         }
 
         // 添加操作结束时间
-        span.add_attribute("operation.end_time".to_string(),
+        span.add_attribute(
+            "operation.end_time".to_string(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis()
-                .to_string()
+                .to_string(),
         );
 
         // 完成跨度
@@ -184,7 +192,8 @@ impl DistributedTracingMiddleware {
         }
 
         // 提取或创建追踪上下文
-        let trace_context = self.extract_trace_context(headers)
+        let trace_context = self
+            .extract_trace_context(headers)
             .unwrap_or_else(|| self.create_trace_context());
 
         // 开始HTTP请求跨度
@@ -196,10 +205,11 @@ impl DistributedTracingMiddleware {
             span.add_attribute("http.method".to_string(), method.to_string());
             span.add_attribute("http.path".to_string(), path.to_string());
             span.add_attribute("http.url".to_string(), path.to_string());
-            
+
             // 添加请求ID
             if self.config.enable_correlation_id {
-                let request_id = headers.get("x-request-id")
+                let request_id = headers
+                    .get("x-request-id")
                     .cloned()
                     .unwrap_or_else(|| Uuid::new_v4().to_string());
                 span.add_attribute("http.request_id".to_string(), request_id);
@@ -211,9 +221,11 @@ impl DistributedTracingMiddleware {
             }
 
             // 添加客户端IP
-            if let Some(client_ip) = headers.get("x-forwarded-for")
+            if let Some(client_ip) = headers
+                .get("x-forwarded-for")
                 .or_else(|| headers.get("x-real-ip"))
-                .or_else(|| headers.get("remote-addr")) {
+                .or_else(|| headers.get("remote-addr"))
+            {
                 span.add_attribute("http.client_ip".to_string(), client_ip.clone());
             }
 
@@ -240,15 +252,24 @@ impl DistributedTracingMiddleware {
         if let Some(mut span) = span {
             // 添加响应相关属性
             span.add_attribute("http.status_code".to_string(), status_code.to_string());
-            span.add_attribute("http.duration_ms".to_string(), duration.as_millis().to_string());
-            
+            span.add_attribute(
+                "http.duration_ms".to_string(),
+                duration.as_millis().to_string(),
+            );
+
             // 添加响应头（如果有）
             if let Some(response_headers) = headers {
                 if let Some(content_type) = response_headers.get("content-type") {
-                    span.add_attribute("http.response.content_type".to_string(), content_type.clone());
+                    span.add_attribute(
+                        "http.response.content_type".to_string(),
+                        content_type.clone(),
+                    );
                 }
                 if let Some(content_length) = response_headers.get("content-length") {
-                    span.add_attribute("http.response.content_length".to_string(), content_length.clone());
+                    span.add_attribute(
+                        "http.response.content_length".to_string(),
+                        content_length.clone(),
+                    );
                 }
             }
 
@@ -292,8 +313,11 @@ impl DistributedTracingMiddleware {
             // 添加数据库相关属性
             span.add_attribute("db.operation".to_string(), "query".to_string());
             span.add_attribute("db.statement".to_string(), query.to_string());
-            span.add_attribute("db.duration_ms".to_string(), duration.as_millis().to_string());
-            
+            span.add_attribute(
+                "db.duration_ms".to_string(),
+                duration.as_millis().to_string(),
+            );
+
             if let Some(rows) = rows_affected {
                 span.add_attribute("db.rows_affected".to_string(), rows.to_string());
             }
@@ -337,11 +361,20 @@ impl DistributedTracingMiddleware {
 
         if let Some(mut span) = span {
             // 添加外部服务相关属性
-            span.add_attribute("external.service.name".to_string(), service_name.to_string());
-            span.add_attribute("external.service.endpoint".to_string(), endpoint.to_string());
+            span.add_attribute(
+                "external.service.name".to_string(),
+                service_name.to_string(),
+            );
+            span.add_attribute(
+                "external.service.endpoint".to_string(),
+                endpoint.to_string(),
+            );
             span.add_attribute("external.service.method".to_string(), method.to_string());
-            span.add_attribute("external.service.duration_ms".to_string(), duration.as_millis().to_string());
-            
+            span.add_attribute(
+                "external.service.duration_ms".to_string(),
+                duration.as_millis().to_string(),
+            );
+
             if let Some(code) = status_code {
                 span.add_attribute("external.service.status_code".to_string(), code.to_string());
             }
@@ -361,7 +394,7 @@ impl DistributedTracingMiddleware {
             };
 
             // 记录调用日志
-            let log_level = if error.is_some() || status_code.map_or(false, |c| c >= 400) {
+            let log_level = if error.is_some() || status_code.is_some_and(|c| c >= 400) {
                 TracingLogLevel::Warn
             } else {
                 TracingLogLevel::Info
@@ -389,7 +422,7 @@ impl DistributedTracingMiddleware {
         if let Some(mut span) = span {
             // 添加自定义事件属性
             span.add_attribute("event.name".to_string(), event_name.to_string());
-            
+
             if let Some(attrs) = attributes {
                 for (key, value) in attrs {
                     span.add_attribute(format!("event.{}", key), value);
@@ -588,15 +621,15 @@ mod tests {
     #[tokio::test]
     async fn test_http_request_tracing() {
         let mut middleware = DistributedTracingMiddleware::new(DistributedTracingConfig::default());
-        
+
         let mut headers = HashMap::new();
         headers.insert("user-agent".to_string(), "test-agent".to_string());
-        
+
         let (context, span) = middleware.trace_http_request("GET", "/api/test", &headers);
-        
+
         assert!(context.is_some());
         assert!(span.is_some());
-        
+
         if let Some(span) = span {
             middleware.trace_http_response(Some(span), 200, Duration::from_millis(100), None);
         }

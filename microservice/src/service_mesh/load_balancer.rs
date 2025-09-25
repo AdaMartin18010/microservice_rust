@@ -2,10 +2,10 @@
 //!
 //! 提供多种负载均衡策略
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 
 use super::service_discovery::ServiceInstance;
@@ -31,7 +31,10 @@ impl LoadBalancer {
     }
 
     /// 选择服务实例
-    pub fn select_instance(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    pub fn select_instance(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         if instances.is_empty() {
             return Err(LoadBalancerError::NoAvailableInstances);
         }
@@ -41,32 +44,30 @@ impl LoadBalancer {
         }
 
         match &self.strategy {
-            LoadBalancingStrategy::RoundRobin => {
-                self.select_round_robin(instances)
-            }
+            LoadBalancingStrategy::RoundRobin => self.select_round_robin(instances),
             LoadBalancingStrategy::WeightedRoundRobin => {
                 self.select_weighted_round_robin(instances)
             }
-            LoadBalancingStrategy::LeastConnections => {
-                self.select_least_connections(instances)
-            }
-            LoadBalancingStrategy::Random => {
-                self.select_random(instances)
-            }
-            LoadBalancingStrategy::WeightedRandom => {
-                self.select_weighted_random(instances)
-            }
+            LoadBalancingStrategy::LeastConnections => self.select_least_connections(instances),
+            LoadBalancingStrategy::Random => self.select_random(instances),
+            LoadBalancingStrategy::WeightedRandom => self.select_weighted_random(instances),
         }
     }
 
     /// 轮询选择
-    fn select_round_robin(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    fn select_round_robin(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         let index = self.round_robin_index.fetch_add(1, Ordering::Relaxed) % instances.len();
         Ok(instances[index].clone())
     }
 
     /// 加权轮询选择
-    fn select_weighted_round_robin(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    fn select_weighted_round_robin(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         let total_weight: u32 = instances.iter().map(|i| i.weight).sum();
         if total_weight == 0 {
             return self.select_round_robin(instances);
@@ -85,14 +86,17 @@ impl LoadBalancer {
         }
 
         selected_instance
-            .map(|instance| instance.clone())
-            .ok_or_else(|| LoadBalancerError::SelectionFailed)
+            .cloned()
+            .ok_or(LoadBalancerError::SelectionFailed)
     }
 
     /// 最少连接数选择
-    fn select_least_connections(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    fn select_least_connections(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         let connection_counts = self.connection_counts.read().unwrap();
-        
+
         let mut min_connections = usize::MAX;
         let mut selected_instance = None;
 
@@ -105,27 +109,34 @@ impl LoadBalancer {
         }
 
         selected_instance
-            .map(|instance| instance.clone())
-            .ok_or_else(|| LoadBalancerError::SelectionFailed)
+            .cloned()
+            .ok_or(LoadBalancerError::SelectionFailed)
     }
 
     /// 随机选择
-    fn select_random(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    fn select_random(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos()
             .hash(&mut hasher);
-        
+
         let index = (hasher.finish() as usize) % instances.len();
         Ok(instances[index].clone())
     }
 
     /// 加权随机选择
-    fn select_weighted_random(&self, instances: &[ServiceInstance]) -> Result<ServiceInstance, LoadBalancerError> {
+    fn select_weighted_random(
+        &self,
+        instances: &[ServiceInstance],
+    ) -> Result<ServiceInstance, LoadBalancerError> {
         let total_weight: u32 = instances.iter().map(|i| i.weight).sum();
         if total_weight == 0 {
             return self.select_random(instances);
@@ -133,13 +144,14 @@ impl LoadBalancer {
 
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos()
             .hash(&mut hasher);
-        
+
         let random_weight = (hasher.finish() as u32) % total_weight;
         let mut current_weight = 0;
 
@@ -163,10 +175,10 @@ impl LoadBalancer {
     /// 减少连接数
     pub fn decrement_connections(&self, service_id: &str) {
         let mut connection_counts = self.connection_counts.write().unwrap();
-        if let Some(count) = connection_counts.get_mut(service_id) {
-            if *count > 0 {
-                *count -= 1;
-            }
+        if let Some(count) = connection_counts.get_mut(service_id)
+            && *count > 0
+        {
+            *count -= 1;
         }
     }
 

@@ -296,15 +296,9 @@ pub mod time {
         let s = s.trim();
 
         if let Some(stripped) = s.strip_suffix("ms") {
-            stripped
-                .parse::<u64>()
-                .ok()
-                .map(Duration::from_millis)
+            stripped.parse::<u64>().ok().map(Duration::from_millis)
         } else if let Some(stripped) = s.strip_suffix("s") {
-            stripped
-                .parse::<u64>()
-                .ok()
-                .map(Duration::from_secs)
+            stripped.parse::<u64>().ok().map(Duration::from_secs)
         } else if let Some(stripped) = s.strip_suffix("m") {
             stripped
                 .parse::<u64>()

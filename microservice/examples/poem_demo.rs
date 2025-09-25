@@ -1,14 +1,14 @@
 //! Poem 微服务框架演示（简化版本）
-//! 
+//!
 //! 本示例展示了如何使用 Poem 框架的概念构建微服务
 //! 注意：这是一个简化版本，不依赖外部 poem 库
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
-use anyhow::Result;
 
 /// 用户数据结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ impl PoemStyleService {
     /// 创建用户
     pub async fn create_user(&self, request: CreateUserRequest) -> Result<ApiResponse<User>> {
         info!("创建用户: {}", request.name);
-        
+
         let mut next_id = self.next_id.write().await;
         let id = *next_id;
         *next_id += 1;
@@ -93,14 +93,14 @@ impl PoemStyleService {
         };
 
         self.users.write().await.insert(id, user.clone());
-        
+
         Ok(ApiResponse::success(user))
     }
 
     /// 获取用户
     pub async fn get_user(&self, id: u64) -> Result<ApiResponse<User>> {
         info!("获取用户: {}", id);
-        
+
         let users = self.users.read().await;
         match users.get(&id) {
             Some(user) => Ok(ApiResponse::success(user.clone())),
@@ -111,17 +111,21 @@ impl PoemStyleService {
     /// 获取所有用户
     pub async fn get_users(&self) -> Result<ApiResponse<Vec<User>>> {
         info!("获取所有用户");
-        
+
         let users = self.users.read().await;
         let user_list: Vec<User> = users.values().cloned().collect();
-        
+
         Ok(ApiResponse::success(user_list))
     }
 
     /// 更新用户
-    pub async fn update_user(&self, id: u64, request: UpdateUserRequest) -> Result<ApiResponse<User>> {
+    pub async fn update_user(
+        &self,
+        id: u64,
+        request: UpdateUserRequest,
+    ) -> Result<ApiResponse<User>> {
         info!("更新用户: {}", id);
-        
+
         let mut users = self.users.write().await;
         match users.get_mut(&id) {
             Some(user) => {
@@ -140,7 +144,7 @@ impl PoemStyleService {
     /// 删除用户
     pub async fn delete_user(&self, id: u64) -> Result<ApiResponse<String>> {
         info!("删除用户: {}", id);
-        
+
         let mut users = self.users.write().await;
         match users.remove(&id) {
             Some(_) => Ok(ApiResponse::success(format!("用户 {} 已删除", id))),
@@ -151,11 +155,11 @@ impl PoemStyleService {
     /// 获取用户统计
     pub async fn get_stats(&self) -> Result<ApiResponse<HashMap<String, u64>>> {
         info!("获取用户统计");
-        
+
         let users = self.users.read().await;
         let mut stats = HashMap::new();
         stats.insert("total_users".to_string(), users.len() as u64);
-        
+
         Ok(ApiResponse::success(stats))
     }
 }
@@ -186,14 +190,18 @@ impl HttpHandler {
                     let response = self.service.get_user(id).await?;
                     Ok(serde_json::to_string_pretty(&response)?)
                 } else {
-                    Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("无效的用户ID".to_string()))?)
+                    Ok(serde_json::to_string_pretty(
+                        &ApiResponse::<String>::error("无效的用户ID".to_string()),
+                    )?)
                 }
             }
             "/stats" => {
                 let response = self.service.get_stats().await?;
                 Ok(serde_json::to_string_pretty(&response)?)
             }
-            _ => Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("未找到路径".to_string()))?)
+            _ => Ok(serde_json::to_string_pretty(
+                &ApiResponse::<String>::error("未找到路径".to_string()),
+            )?),
         }
     }
 
@@ -205,7 +213,9 @@ impl HttpHandler {
                 let response = self.service.create_user(request).await?;
                 Ok(serde_json::to_string_pretty(&response)?)
             }
-            _ => Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("未找到路径".to_string()))?)
+            _ => Ok(serde_json::to_string_pretty(
+                &ApiResponse::<String>::error("未找到路径".to_string()),
+            )?),
         }
     }
 
@@ -219,10 +229,14 @@ impl HttpHandler {
                     let response = self.service.update_user(id, request).await?;
                     Ok(serde_json::to_string_pretty(&response)?)
                 } else {
-                    Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("无效的用户ID".to_string()))?)
+                    Ok(serde_json::to_string_pretty(
+                        &ApiResponse::<String>::error("无效的用户ID".to_string()),
+                    )?)
                 }
             }
-            _ => Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("未找到路径".to_string()))?)
+            _ => Ok(serde_json::to_string_pretty(
+                &ApiResponse::<String>::error("未找到路径".to_string()),
+            )?),
         }
     }
 
@@ -235,10 +249,14 @@ impl HttpHandler {
                     let response = self.service.delete_user(id).await?;
                     Ok(serde_json::to_string_pretty(&response)?)
                 } else {
-                    Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("无效的用户ID".to_string()))?)
+                    Ok(serde_json::to_string_pretty(
+                        &ApiResponse::<String>::error("无效的用户ID".to_string()),
+                    )?)
                 }
             }
-            _ => Ok(serde_json::to_string_pretty(&ApiResponse::<String>::error("未找到路径".to_string()))?)
+            _ => Ok(serde_json::to_string_pretty(
+                &ApiResponse::<String>::error("未找到路径".to_string()),
+            )?),
         }
     }
 }
@@ -248,70 +266,76 @@ impl HttpHandler {
 async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 Poem 风格微服务演示");
     println!("================================");
-    
+
     let handler = HttpHandler::new();
-    
+
     // 演示创建用户
     println!("\n📝 创建用户:");
     let create_request = CreateUserRequest {
         name: "张三".to_string(),
         email: "zhangsan@example.com".to_string(),
     };
-    let response = handler.handle_post("/users", &serde_json::to_string(&create_request)?).await?;
+    let response = handler
+        .handle_post("/users", &serde_json::to_string(&create_request)?)
+        .await?;
     println!("POST /users: {}", response);
-    
+
     // 创建更多用户
     let users_to_create = vec![
         ("李四", "lisi@example.com"),
         ("王五", "wangwu@example.com"),
         ("赵六", "zhaoliu@example.com"),
     ];
-    
+
     for (name, email) in users_to_create {
         let request = CreateUserRequest {
             name: name.to_string(),
             email: email.to_string(),
         };
-        handler.handle_post("/users", &serde_json::to_string(&request)?).await?;
+        handler
+            .handle_post("/users", &serde_json::to_string(&request)?)
+            .await?;
     }
-    
+
     // 演示获取所有用户
     println!("\n👥 获取所有用户:");
     let response = handler.handle_get("/users").await?;
     println!("GET /users: {}", response);
-    
+
     // 演示获取特定用户
     println!("\n👤 获取特定用户:");
     let response = handler.handle_get("/users/1").await?;
     println!("GET /users/1: {}", response);
-    
+
     // 演示更新用户
     println!("\n✏️  更新用户:");
     let update_request = UpdateUserRequest {
         name: Some("张三（更新）".to_string()),
         email: None,
     };
-    let response = handler.handle_put("/users/1", &serde_json::to_string(&update_request)?).await?;
+    let response = handler
+        .handle_put("/users/1", &serde_json::to_string(&update_request)?)
+        .await?;
     println!("PUT /users/1: {}", response);
-    
+
     // 演示获取统计信息
     println!("\n📊 获取统计信息:");
     let response = handler.handle_get("/stats").await?;
     println!("GET /stats: {}", response);
-    
+
     // 演示删除用户
     println!("\n🗑️  删除用户:");
     let response = handler.handle_delete("/users/2").await?;
     println!("DELETE /users/2: {}", response);
-    
+
     // 演示获取更新后的用户列表
     println!("\n👥 获取更新后的用户列表:");
     let response = handler.handle_get("/users").await?;
     println!("GET /users: {}", response);
-    
+
     println!("\n✅ Poem 风格微服务演示完成！");
     println!();
     println!("🎯 主要特性:");
@@ -327,7 +351,7 @@ async fn main() -> Result<()> {
     println!("- 类型安全的请求/响应");
     println!("- 中间件支持");
     println!("- 易于扩展");
-    
+
     Ok(())
 }
 
@@ -342,7 +366,7 @@ mod tests {
             name: "测试用户".to_string(),
             email: "test@example.com".to_string(),
         };
-        
+
         let response = service.create_user(request).await.unwrap();
         assert!(response.success);
         assert_eq!(response.data.unwrap().name, "测试用户");
@@ -351,14 +375,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_user() {
         let service = PoemStyleService::new();
-        
+
         // 创建用户
         let request = CreateUserRequest {
             name: "测试用户".to_string(),
             email: "test@example.com".to_string(),
         };
         service.create_user(request).await.unwrap();
-        
+
         // 获取用户
         let response = service.get_user(1).await.unwrap();
         assert!(response.success);
@@ -368,14 +392,14 @@ mod tests {
     #[tokio::test]
     async fn test_update_user() {
         let service = PoemStyleService::new();
-        
+
         // 创建用户
         let request = CreateUserRequest {
             name: "测试用户".to_string(),
             email: "test@example.com".to_string(),
         };
         service.create_user(request).await.unwrap();
-        
+
         // 更新用户
         let update_request = UpdateUserRequest {
             name: Some("更新后的用户".to_string()),
@@ -389,18 +413,18 @@ mod tests {
     #[tokio::test]
     async fn test_delete_user() {
         let service = PoemStyleService::new();
-        
+
         // 创建用户
         let request = CreateUserRequest {
             name: "测试用户".to_string(),
             email: "test@example.com".to_string(),
         };
         service.create_user(request).await.unwrap();
-        
+
         // 删除用户
         let response = service.delete_user(1).await.unwrap();
         assert!(response.success);
-        
+
         // 验证用户已删除
         let response = service.get_user(1).await.unwrap();
         assert!(!response.success);

@@ -2,11 +2,11 @@
 //!
 //! 展示如何使用microservice框架构建和运行微服务。
 
+use clap::{Parser, Subcommand};
 use microservice::{
     actix::ActixMicroservice, axum::AxumMicroservice, grpc::GrpcMicroservice, prelude::Config,
     volo::VoloMicroservice,
 };
-use clap::{Parser, Subcommand};
 
 /// 微服务命令行工具
 #[derive(Parser)]

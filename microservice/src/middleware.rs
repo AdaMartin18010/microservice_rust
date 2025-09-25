@@ -10,10 +10,10 @@
 pub mod practical_middleware;
 
 // 高级中间件实现
-pub mod jwt_auth;
-pub mod request_validation;
 pub mod cache;
 pub mod distributed_tracing;
+pub mod jwt_auth;
+pub mod request_validation;
 
 use std::time::Duration;
 
@@ -79,7 +79,6 @@ impl MiddlewareBuilder {
     /// 构建中间件栈
     pub fn build(self) {
         // 简化的构建实现
-        
     }
 }
 
@@ -137,38 +136,35 @@ pub struct AuthConfig {
 /// 简化的中间件函数
 pub fn request_id() -> impl Clone {
     // 简化的请求ID中间件
-    
 }
 
 pub fn health_check() -> impl Clone {
     // 简化的健康检查中间件
-    
 }
 
 pub fn error_handler() -> impl Clone {
     // 简化的错误处理中间件
-    
 }
 
 // 重新导出主要的中间件类型
-pub use jwt_auth::{
-    JwtAuthMiddleware, JwtConfig, JwtAuthManager, Claims, JwtUser, AuthResult, JwtError,
-};
-pub use request_validation::{
-    RequestValidationMiddleware, ValidationConfig, ValidationRequest, ValidationResult, 
-    ValidationError, ParameterRule, ParameterType, SecurityPattern,
-};
 pub use cache::{
-    CacheManager, CacheConfig, MemoryCache, HttpCacheMiddleware, HttpCacheRequest, 
-    HttpCacheResponse, CacheItem, CacheStats, CacheError,
-};
-pub use practical_middleware::{
-    MiddlewareManager, RequestTracingMiddleware, RateLimitMiddleware, 
-    HealthCheckMiddleware, ErrorHandlingMiddleware, RequestResult,
+    CacheConfig, CacheError, CacheItem, CacheManager, CacheStats, HttpCacheMiddleware,
+    HttpCacheRequest, HttpCacheResponse, MemoryCache,
 };
 pub use distributed_tracing::{
-    DistributedTracingMiddleware, DistributedTracingConfig, TracingLogLevel,
-    TracingStats, TraceContextBuilder,
+    DistributedTracingConfig, DistributedTracingMiddleware, TraceContextBuilder, TracingLogLevel,
+    TracingStats,
+};
+pub use jwt_auth::{
+    AuthResult, Claims, JwtAuthManager, JwtAuthMiddleware, JwtConfig, JwtError, JwtUser,
+};
+pub use practical_middleware::{
+    ErrorHandlingMiddleware, HealthCheckMiddleware, MiddlewareManager, RateLimitMiddleware,
+    RequestResult, RequestTracingMiddleware,
+};
+pub use request_validation::{
+    ParameterRule, ParameterType, RequestValidationMiddleware, SecurityPattern, ValidationConfig,
+    ValidationError, ValidationRequest, ValidationResult,
 };
 
 #[cfg(test)]

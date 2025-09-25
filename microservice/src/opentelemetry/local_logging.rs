@@ -377,9 +377,10 @@ impl LocalLogManager {
                 &current_file_size,
                 &last_rotation_time,
                 &config,
-            ) {
-                eprintln!("Failed to flush final log batch: {}", e);
-            }
+            )
+        {
+            eprintln!("Failed to flush final log batch: {}", e);
+        }
     }
 
     /// 刷新日志批次
@@ -560,10 +561,12 @@ impl LocalLogManager {
 
             if path.is_file()
                 && let Some(filename) = path.file_name().and_then(|n| n.to_str())
-                    && filename.starts_with(file_prefix) && filename.ends_with(".log")
-                        && let Ok(metadata) = entry.metadata() {
-                            log_files.push((path, metadata.modified()?));
-                        }
+                && filename.starts_with(file_prefix)
+                && filename.ends_with(".log")
+                && let Ok(metadata) = entry.metadata()
+            {
+                log_files.push((path, metadata.modified()?));
+            }
         }
 
         // 按修改时间排序（最新的在前）
@@ -602,9 +605,10 @@ impl LocalLogManager {
                 }
 
                 if config.include_thread_id
-                    && let Some(ref thread_id) = entry.thread_id {
-                        formatted.push_str(&format!("[{}] ", thread_id));
-                    }
+                    && let Some(ref thread_id) = entry.thread_id
+                {
+                    formatted.push_str(&format!("[{}] ", thread_id));
+                }
 
                 formatted.push_str(&entry.message);
 
@@ -702,17 +706,18 @@ impl LocalLogManager {
 
             if path.is_file()
                 && let Some(filename) = path.file_name().and_then(|n| n.to_str())
-                    && filename.starts_with(file_prefix)
-                        && filename.ends_with(".log")
-                        && !filename.ends_with(".gz")
-                        && let Ok(metadata) = entry.metadata() {
-                            let modified = metadata.modified()?;
-                            let now = SystemTime::now();
+                && filename.starts_with(file_prefix)
+                && filename.ends_with(".log")
+                && !filename.ends_with(".gz")
+                && let Ok(metadata) = entry.metadata()
+            {
+                let modified = metadata.modified()?;
+                let now = SystemTime::now();
 
-                            if now.duration_since(modified)? >= delay {
-                                Self::compress_file(&path)?;
-                            }
-                        }
+                if now.duration_since(modified)? >= delay {
+                    Self::compress_file(&path)?;
+                }
+            }
         }
         Ok(())
     }

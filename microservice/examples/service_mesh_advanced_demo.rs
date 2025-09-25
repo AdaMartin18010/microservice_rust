@@ -1,15 +1,15 @@
 //! 高级服务网格演示
-//! 
+//!
 //! 本示例展示了如何使用Rust构建高级服务网格功能
 //! 包括：流量管理、负载均衡、熔断器、重试、超时、分布式追踪等
 
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Semaphore};
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
-use tracing::{info, warn, error, instrument};
+use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
 /// 服务网格配置
@@ -143,7 +143,7 @@ impl CircuitBreaker {
             request_count: Arc::new(RwLock::new(0)),
         }
     }
-    
+
     #[instrument]
     pub async fn can_execute(&self) -> bool {
         let state = self.state.read().await;
@@ -173,16 +173,16 @@ impl CircuitBreaker {
             }
         }
     }
-    
+
     #[instrument]
     pub async fn record_success(&self) {
         let mut state = self.state.write().await;
         let mut success_count = self.success_count.write().await;
         let mut failure_count = self.failure_count.write().await;
-        
+
         *success_count += 1;
         *failure_count = 0;
-        
+
         if *state == CircuitBreakerState::HalfOpen {
             if *success_count >= self.config.success_threshold {
                 *state = CircuitBreakerState::Closed;
@@ -190,22 +190,22 @@ impl CircuitBreaker {
             }
         }
     }
-    
+
     #[instrument]
     pub async fn record_failure(&self) {
         let mut state = self.state.write().await;
         let mut failure_count = self.failure_count.write().await;
         let mut last_failure_time = self.last_failure_time.write().await;
-        
+
         *failure_count += 1;
         *last_failure_time = Some(Instant::now());
-        
+
         if *failure_count >= self.config.failure_threshold {
             *state = CircuitBreakerState::Open;
             info!("熔断器切换到开启状态");
         }
     }
-    
+
     pub async fn get_state(&self) -> CircuitBreakerState {
         let state = self.state.read().await;
         state.clone()
@@ -230,19 +230,17 @@ impl LoadBalancer {
             connection_counts: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     #[instrument]
     pub async fn select_endpoint(&self) -> Option<ServiceEndpoint> {
         let endpoints = self.endpoints.read().await;
-        let healthy_endpoints: Vec<&ServiceEndpoint> = endpoints
-            .iter()
-            .filter(|ep| ep.healthy)
-            .collect();
-        
+        let healthy_endpoints: Vec<&ServiceEndpoint> =
+            endpoints.iter().filter(|ep| ep.healthy).collect();
+
         if healthy_endpoints.is_empty() {
             return None;
         }
-        
+
         let selected = match self.config.strategy {
             LoadBalancingStrategy::RoundRobin => {
                 let mut index = self.current_index.write().await;
@@ -255,7 +253,7 @@ impl LoadBalancer {
                 let total_weight: u32 = healthy_endpoints.iter().map(|ep| ep.weight).sum();
                 let mut index = self.current_index.write().await;
                 let mut current_weight = 0;
-                
+
                 for endpoint in &healthy_endpoints {
                     current_weight += endpoint.weight;
                     if *index < current_weight as usize {
@@ -269,7 +267,7 @@ impl LoadBalancer {
                 let connection_counts = self.connection_counts.read().await;
                 let mut least_connections = u32::MAX;
                 let mut selected_endpoint = None;
-                
+
                 for endpoint in &healthy_endpoints {
                     let connections = connection_counts.get(&endpoint.id).copied().unwrap_or(0);
                     if connections < least_connections {
@@ -277,7 +275,7 @@ impl LoadBalancer {
                         selected_endpoint = Some(endpoint.clone());
                     }
                 }
-                
+
                 selected_endpoint.unwrap_or(&healthy_endpoints[0]).clone()
             }
             LoadBalancingStrategy::Random => {
@@ -290,10 +288,10 @@ impl LoadBalancer {
                 healthy_endpoints[index].clone()
             }
         };
-        
+
         Some(selected)
     }
-    
+
     #[instrument]
     pub async fn update_endpoint_health(&self, endpoint_id: &str, healthy: bool) {
         let mut endpoints = self.endpoints.write().await;
@@ -304,13 +302,15 @@ impl LoadBalancer {
             }
         }
     }
-    
+
     #[instrument]
     pub async fn increment_connections(&self, endpoint_id: &str) {
         let mut connection_counts = self.connection_counts.write().await;
-        *connection_counts.entry(endpoint_id.to_string()).or_insert(0) += 1;
+        *connection_counts
+            .entry(endpoint_id.to_string())
+            .or_insert(0) += 1;
     }
-    
+
     #[instrument]
     pub async fn decrement_connections(&self, endpoint_id: &str) {
         let mut connection_counts = self.connection_counts.write().await;
@@ -332,7 +332,7 @@ impl RetryHandler {
     pub fn new(config: RetryPolicy) -> Self {
         Self { config }
     }
-    
+
     pub async fn execute_with_retry<F, Fut, T, E>(
         &self,
         operation: F,
@@ -345,12 +345,12 @@ impl RetryHandler {
     {
         let mut attempt = 0;
         let mut delay = self.config.base_delay;
-        
+
         loop {
             attempt += 1;
-            
+
             let result = operation().await;
-            
+
             match result {
                 Ok(value) => return Ok(value),
                 Err(error) => {
@@ -358,19 +358,19 @@ impl RetryHandler {
                         error!("重试次数已达上限，操作失败: {}", error);
                         return Err(error);
                     }
-                    
+
                     if !self.should_retry(&error.to_string()) {
                         error!("错误不可重试: {}", error);
                         return Err(error);
                     }
-                    
+
                     warn!("操作失败，第 {} 次重试: {}", attempt, error);
-                    
+
                     // 计算退避延迟
                     tokio::time::sleep(delay).await;
                     delay = std::cmp::min(
                         Duration::from_millis(
-                            (delay.as_millis() as f64 * self.config.backoff_multiplier) as u64
+                            (delay.as_millis() as f64 * self.config.backoff_multiplier) as u64,
                         ),
                         self.config.max_delay,
                     );
@@ -378,11 +378,12 @@ impl RetryHandler {
             }
         }
     }
-    
+
     fn should_retry(&self, error: &str) -> bool {
-        self.config.retryable_errors.iter().any(|retryable| {
-            error.contains(retryable)
-        })
+        self.config
+            .retryable_errors
+            .iter()
+            .any(|retryable| error.contains(retryable))
     }
 }
 
@@ -410,13 +411,13 @@ impl DistributedTracer {
             spans: Arc::new(RwLock::new(HashMap::new())),
         }
     }
-    
+
     #[instrument]
     pub fn start_span(&self, operation_name: &str, parent_span_id: Option<&str>) -> String {
         if !self.config.enabled {
             return String::new();
         }
-        
+
         let span_id = Uuid::new_v4().to_string();
         let trace_id = parent_span_id
             .and_then(|pid| {
@@ -424,7 +425,7 @@ impl DistributedTracer {
                 spans.get(pid).map(|span| span.trace_id.clone())
             })
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        
+
         let span_info = SpanInfo {
             trace_id: trace_id.clone(),
             span_id: span_id.clone(),
@@ -433,20 +434,20 @@ impl DistributedTracer {
             start_time: Instant::now(),
             tags: HashMap::new(),
         };
-        
+
         let mut spans = self.spans.blocking_write();
         spans.insert(span_id.clone(), span_info);
-        
+
         info!("开始追踪span: {} (trace: {})", span_id, trace_id);
         span_id
     }
-    
+
     #[instrument]
     pub async fn finish_span(&self, span_id: &str) {
         if !self.config.enabled {
             return;
         }
-        
+
         let mut spans = self.spans.write().await;
         if let Some(span_info) = spans.remove(span_id) {
             let duration = span_info.start_time.elapsed();
@@ -456,13 +457,13 @@ impl DistributedTracer {
             );
         }
     }
-    
+
     #[instrument]
     pub async fn add_tag(&self, span_id: &str, key: &str, value: &str) {
         if !self.config.enabled {
             return;
         }
-        
+
         let mut spans = self.spans.write().await;
         if let Some(span_info) = spans.get_mut(span_id) {
             span_info.tags.insert(key.to_string(), value.to_string());
@@ -484,14 +485,12 @@ pub struct ServiceMeshProxy {
 impl ServiceMeshProxy {
     pub fn new(config: ServiceMeshConfig) -> Self {
         let circuit_breaker = CircuitBreaker::new(config.circuit_breaker.clone());
-        let load_balancer = LoadBalancer::new(
-            config.load_balancer.clone(),
-            config.endpoints.clone(),
-        );
+        let load_balancer =
+            LoadBalancer::new(config.load_balancer.clone(), config.endpoints.clone());
         let retry_handler = RetryHandler::new(config.retry_policy.clone());
         let tracer = DistributedTracer::new(config.tracing.clone());
         let semaphore = Arc::new(Semaphore::new(config.circuit_breaker.max_requests as usize));
-        
+
         Self {
             config,
             circuit_breaker,
@@ -501,34 +500,39 @@ impl ServiceMeshProxy {
             semaphore,
         }
     }
-    
+
     #[instrument]
     pub async fn handle_request(&self, ctx: RequestContext) -> Result<ResponseInfo> {
-        let span_id = self.tracer.start_span("service_mesh_proxy", Some(&ctx.span_id));
-        
+        let span_id = self
+            .tracer
+            .start_span("service_mesh_proxy", Some(&ctx.span_id));
+
         // 检查熔断器
         if !self.circuit_breaker.can_execute().await {
             self.tracer.finish_span(&span_id);
             return Err(anyhow::anyhow!("熔断器开启，请求被拒绝"));
         }
-        
+
         // 获取信号量
         let _permit = self.semaphore.acquire().await?;
-        
+
         // 选择端点
-        let endpoint = self.load_balancer.select_endpoint().await
+        let endpoint = self
+            .load_balancer
+            .select_endpoint()
+            .await
             .ok_or_else(|| anyhow::anyhow!("没有可用的健康端点"))?;
-        
+
         self.tracer.add_tag(&span_id, "endpoint", &endpoint.address);
         self.load_balancer.increment_connections(&endpoint.id).await;
-        
-        let result = self.retry_handler.execute_with_retry(
-            || self.execute_request(&ctx, &endpoint),
-            &ctx,
-        ).await;
-        
+
+        let result = self
+            .retry_handler
+            .execute_with_retry(|| self.execute_request(&ctx, &endpoint), &ctx)
+            .await;
+
         self.load_balancer.decrement_connections(&endpoint.id).await;
-        
+
         match result {
             Ok(response) => {
                 self.circuit_breaker.record_success().await;
@@ -545,7 +549,7 @@ impl ServiceMeshProxy {
             }
         }
     }
-    
+
     #[instrument]
     async fn execute_request(
         &self,
@@ -553,12 +557,12 @@ impl ServiceMeshProxy {
         endpoint: &ServiceEndpoint,
     ) -> Result<ResponseInfo> {
         let start_time = Instant::now();
-        
+
         // 模拟HTTP请求
         let client = reqwest::Client::builder()
             .timeout(self.config.timeout_config.request_timeout)
             .build()?;
-        
+
         let url = format!("http://{}:{}", endpoint.address, endpoint.port);
         let response = client
             .get(&url)
@@ -571,12 +575,12 @@ impl ServiceMeshProxy {
             })
             .send()
             .await?;
-        
+
         let status_code = response.status().as_u16();
         let body = response.bytes().await?;
         let size = body.len();
         let duration = start_time.elapsed();
-        
+
         Ok(ResponseInfo {
             status_code,
             duration,
@@ -584,13 +588,15 @@ impl ServiceMeshProxy {
             error: None,
         })
     }
-    
+
     pub async fn get_circuit_breaker_state(&self) -> CircuitBreakerState {
         self.circuit_breaker.get_state().await
     }
-    
+
     pub async fn update_endpoint_health(&self, endpoint_id: &str, healthy: bool) {
-        self.load_balancer.update_endpoint_health(endpoint_id, healthy).await;
+        self.load_balancer
+            .update_endpoint_health(endpoint_id, healthy)
+            .await;
     }
 }
 
@@ -599,10 +605,10 @@ impl ServiceMeshProxy {
 async fn main() -> Result<()> {
     // 初始化日志
     tracing_subscriber::fmt::init();
-    
+
     println!("🚀 高级服务网格演示");
     println!("================================");
-    
+
     // 创建服务网格配置
     let config = ServiceMeshConfig {
         service_name: "user-service".to_string(),
@@ -669,10 +675,10 @@ async fn main() -> Result<()> {
             zipkin_endpoint: None,
         },
     };
-    
+
     // 创建服务网格代理
     let proxy = ServiceMeshProxy::new(config);
-    
+
     println!("📡 服务网格代理已启动");
     println!("📋 功能特性:");
     println!("  ✅ 熔断器");
@@ -682,7 +688,7 @@ async fn main() -> Result<()> {
     println!("  ✅ 分布式追踪");
     println!("  ✅ 流量管理");
     println!();
-    
+
     // 模拟请求处理
     for i in 1..=10 {
         let ctx = RequestContext {
@@ -694,29 +700,31 @@ async fn main() -> Result<()> {
             start_time: Instant::now(),
             retry_count: 0,
         };
-        
+
         match proxy.handle_request(ctx).await {
             Ok(response) => {
-                println!("✅ 请求 #{} 成功: 状态码={}, 耗时={:?}, 大小={}字节", 
-                    i, response.status_code, response.duration, response.size);
+                println!(
+                    "✅ 请求 #{} 成功: 状态码={}, 耗时={:?}, 大小={}字节",
+                    i, response.status_code, response.duration, response.size
+                );
             }
             Err(error) => {
                 println!("❌ 请求 #{} 失败: {}", i, error);
             }
         }
-        
+
         // 检查熔断器状态
         let cb_state = proxy.get_circuit_breaker_state().await;
         println!("🔧 熔断器状态: {:?}", cb_state);
-        
+
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    
+
     // 模拟端点故障
     println!("\n🔧 模拟端点故障...");
     proxy.update_endpoint_health("endpoint-1", false).await;
     proxy.update_endpoint_health("endpoint-2", false).await;
-    
+
     // 继续发送请求
     for i in 11..=15 {
         let ctx = RequestContext {
@@ -728,23 +736,25 @@ async fn main() -> Result<()> {
             start_time: Instant::now(),
             retry_count: 0,
         };
-        
+
         match proxy.handle_request(ctx).await {
             Ok(response) => {
-                println!("✅ 请求 #{} 成功: 状态码={}, 耗时={:?}", 
-                    i, response.status_code, response.duration);
+                println!(
+                    "✅ 请求 #{} 成功: 状态码={}, 耗时={:?}",
+                    i, response.status_code, response.duration
+                );
             }
             Err(error) => {
                 println!("❌ 请求 #{} 失败: {}", i, error);
             }
         }
-        
+
         let cb_state = proxy.get_circuit_breaker_state().await;
         println!("🔧 熔断器状态: {:?}", cb_state);
-        
+
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
-    
+
     println!("✅ 高级服务网格演示完成！");
     println!("主要特性包括:");
     println!("- 智能熔断器保护");
@@ -753,14 +763,14 @@ async fn main() -> Result<()> {
     println!("- 分布式追踪");
     println!("- 流量管理和路由");
     println!("- 健康检查和故障转移");
-    
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_circuit_breaker() {
         let config = CircuitBreakerConfig {
@@ -769,26 +779,26 @@ mod tests {
             timeout_duration: Duration::from_secs(1),
             max_requests: 5,
         };
-        
+
         let cb = CircuitBreaker::new(config);
-        
+
         // 初始状态应该是关闭的
         assert_eq!(cb.get_state().await, CircuitBreakerState::Closed);
-        
+
         // 记录失败，应该保持关闭状态
         cb.record_failure().await;
         assert_eq!(cb.get_state().await, CircuitBreakerState::Closed);
-        
+
         // 记录更多失败，应该切换到开启状态
         cb.record_failure().await;
         cb.record_failure().await;
         assert_eq!(cb.get_state().await, CircuitBreakerState::Open);
-        
+
         // 等待超时后，应该可以执行
         tokio::time::sleep(Duration::from_millis(1100)).await;
         assert!(cb.can_execute().await);
     }
-    
+
     #[tokio::test]
     async fn test_load_balancer() {
         let config = LoadBalancerConfig {
@@ -796,7 +806,7 @@ mod tests {
             health_check_interval: Duration::from_secs(10),
             health_check_timeout: Duration::from_secs(5),
         };
-        
+
         let endpoints = vec![
             ServiceEndpoint {
                 id: "ep1".to_string(),
@@ -815,16 +825,16 @@ mod tests {
                 metadata: HashMap::new(),
             },
         ];
-        
+
         let lb = LoadBalancer::new(config, endpoints);
-        
+
         // 应该能选择到端点
         let endpoint = lb.select_endpoint().await;
         assert!(endpoint.is_some());
-        
+
         // 更新端点健康状态
         lb.update_endpoint_health("ep1", false).await;
-        
+
         // 应该选择到健康的端点
         let endpoint = lb.select_endpoint().await;
         assert!(endpoint.is_some());

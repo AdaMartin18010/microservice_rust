@@ -2,29 +2,27 @@
 //!
 //! 提供服务发现、负载均衡、熔断器和流量管理功能
 
-pub mod service_discovery;
-pub mod load_balancer;
 pub mod circuit_breaker;
+pub mod load_balancer;
+pub mod service_discovery;
 pub mod traffic_management;
 
-pub use service_discovery::{
-    ServiceDiscovery, ServiceRegistry, ServiceInstance, ServiceHealth,
-    DiscoveryConfig, RegistryConfig, HealthCheck,
-};
-pub use load_balancer::{
-    LoadBalancer, LoadBalancingStrategy, LoadBalancerConfig,
-};
 pub use circuit_breaker::{
-    CircuitBreaker, CircuitBreakerState, CircuitBreakerConfig,
-    CircuitBreakerError, CircuitBreakerResult,
+    CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError, CircuitBreakerResult,
+    CircuitBreakerState,
+};
+pub use load_balancer::{LoadBalancer, LoadBalancerConfig, LoadBalancingStrategy};
+pub use service_discovery::{
+    DiscoveryConfig, HealthCheck, RegistryConfig, ServiceDiscovery, ServiceHealth, ServiceInstance,
+    ServiceRegistry,
 };
 pub use traffic_management::{
-    TrafficManager, TrafficPolicy, TrafficRule, TrafficConfig,
-    RetryPolicy, TimeoutPolicy, RateLimitPolicy,
+    RateLimitPolicy, RetryPolicy, TimeoutPolicy, TrafficConfig, TrafficManager, TrafficPolicy,
+    TrafficRule,
 };
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 
 /// 服务网格管理器
@@ -54,23 +52,38 @@ impl ServiceMeshManager {
     }
 
     /// 注册服务
-    pub async fn register_service(&mut self, service: ServiceInstance) -> Result<(), ServiceMeshError> {
-        self.discovery.register_service(service).await
+    pub async fn register_service(
+        &mut self,
+        service: ServiceInstance,
+    ) -> Result<(), ServiceMeshError> {
+        self.discovery
+            .register_service(service)
+            .await
             .map_err(ServiceMeshError::DiscoveryError)
     }
 
     /// 发现服务实例
-    pub async fn discover_services(&mut self, service_name: &str) -> Result<Vec<ServiceInstance>, ServiceMeshError> {
-        self.discovery.discover_services(service_name).await
+    pub async fn discover_services(
+        &mut self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceInstance>, ServiceMeshError> {
+        self.discovery
+            .discover_services(service_name)
+            .await
             .map_err(ServiceMeshError::DiscoveryError)
     }
 
     /// 选择服务实例（负载均衡）
-    pub async fn select_instance(&mut self, service_name: &str) -> Result<ServiceInstance, ServiceMeshError> {
+    pub async fn select_instance(
+        &mut self,
+        service_name: &str,
+    ) -> Result<ServiceInstance, ServiceMeshError> {
         let instances = self.discover_services(service_name).await?;
-        
+
         if instances.is_empty() {
-            return Err(ServiceMeshError::NoAvailableInstances(service_name.to_string()));
+            return Err(ServiceMeshError::NoAvailableInstances(
+                service_name.to_string(),
+            ));
         }
 
         // 过滤健康的实例
@@ -87,16 +100,23 @@ impl ServiceMeshManager {
             .collect();
 
         if healthy_instances.is_empty() {
-            return Err(ServiceMeshError::NoHealthyInstances(service_name.to_string()));
+            return Err(ServiceMeshError::NoHealthyInstances(
+                service_name.to_string(),
+            ));
         }
 
         // 应用负载均衡策略
-        self.load_balancer.select_instance(&healthy_instances)
+        self.load_balancer
+            .select_instance(&healthy_instances)
             .map_err(ServiceMeshError::LoadBalancerError)
     }
 
     /// 执行服务调用
-    pub async fn call_service<F, Fut, T>(&mut self, service_name: &str, operation: F) -> Result<T, ServiceMeshError>
+    pub async fn call_service<F, Fut, T>(
+        &mut self,
+        service_name: &str,
+        operation: F,
+    ) -> Result<T, ServiceMeshError>
     where
         F: FnOnce(&ServiceInstance) -> Fut + Send + 'static,
         Fut: std::future::Future<Output = Result<T, ServiceMeshError>> + Send + 'static,
@@ -106,7 +126,8 @@ impl ServiceMeshManager {
         let instance_id = instance.id.clone();
 
         // 获取或创建熔断器
-        let circuit_breaker = self.circuit_breakers
+        let circuit_breaker = self
+            .circuit_breakers
             .entry(instance_id.clone())
             .or_insert_with(|| CircuitBreaker::new(CircuitBreakerConfig::default()));
 
@@ -117,7 +138,8 @@ impl ServiceMeshManager {
 
         // 执行操作
         let operation_future = operation(&instance);
-        let result = match operation_future.await {
+
+        match operation_future.await {
             Ok(value) => {
                 circuit_breaker.record_success();
                 Ok(value)
@@ -127,19 +149,23 @@ impl ServiceMeshManager {
                 tracing::warn!("服务调用失败: {:?}", e);
                 Err(e)
             }
-        };
-
-        result
+        }
     }
 
     /// 添加熔断器
     pub fn add_circuit_breaker(&mut self, service_id: String, config: CircuitBreakerConfig) {
-        self.circuit_breakers.insert(service_id, CircuitBreaker::new(config));
+        self.circuit_breakers
+            .insert(service_id, CircuitBreaker::new(config));
     }
 
     /// 获取服务健康状态
-    pub async fn get_service_health(&mut self, service_name: &str) -> Result<Vec<ServiceHealth>, ServiceMeshError> {
-        self.discovery.get_service_health(service_name).await
+    pub async fn get_service_health(
+        &mut self,
+        service_name: &str,
+    ) -> Result<Vec<ServiceHealth>, ServiceMeshError> {
+        self.discovery
+            .get_service_health(service_name)
+            .await
             .map_err(ServiceMeshError::DiscoveryError)
     }
 
@@ -155,29 +181,20 @@ impl ServiceMeshManager {
 
     /// 清理过期的服务实例
     pub async fn cleanup_expired_services(&mut self) -> Result<usize, ServiceMeshError> {
-        self.discovery.cleanup_expired_services().await
+        self.discovery
+            .cleanup_expired_services()
+            .await
             .map_err(ServiceMeshError::DiscoveryError)
     }
 }
 
 /// 服务网格配置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServiceMeshConfig {
     pub discovery: DiscoveryConfig,
     pub load_balancer: LoadBalancerConfig,
     pub traffic: TrafficConfig,
     pub circuit_breaker: CircuitBreakerConfig,
-}
-
-impl Default for ServiceMeshConfig {
-    fn default() -> Self {
-        Self {
-            discovery: DiscoveryConfig::default(),
-            load_balancer: LoadBalancerConfig::default(),
-            traffic: TrafficConfig::default(),
-            circuit_breaker: CircuitBreakerConfig::default(),
-        }
-    }
 }
 
 /// 服务网格统计信息

@@ -8,8 +8,7 @@ use crate::error::{Error, Result};
 use std::path::Path;
 
 /// 微服务配置结构
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// 服务配置
     pub service: ServiceConfig,
@@ -184,7 +183,6 @@ pub struct KubernetesConfig {
     /// 是否启用自动扩缩容
     pub enable_autoscaling: bool,
 }
-
 
 impl Default for ServiceConfig {
     fn default() -> Self {

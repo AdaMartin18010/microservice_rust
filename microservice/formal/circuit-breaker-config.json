@@ -1,0 +1,23 @@
+{
+  "spec": "CircuitBreakerVerification",
+  "constants": {
+    "FailureThreshold": 3,
+    "SuccessThreshold": 2,
+    "Timeout": 5
+  },
+  "invariants": [
+    "TypeOK",
+    "NoRequestsWhenOpen",
+    "SuccessResetsFailures"
+  ],
+  "temporal": [
+    "EventuallyRecovers"
+  ],
+  "length": 30,
+  "tuning": {
+    "search": {
+      "strategy": "bfs",
+      "maxDepth": 50
+    }
+  }
+}
