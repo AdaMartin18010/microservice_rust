@@ -8,7 +8,6 @@
 //     opentelemetry::{OpenTelemetryConfig, init_tracing, LogConfig, init_logging, SlogLogger},
 // };
 use tracing::info;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

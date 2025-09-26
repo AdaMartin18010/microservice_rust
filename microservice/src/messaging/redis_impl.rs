@@ -399,7 +399,7 @@ mod tests {
     async fn test_redis_message_queue_creation() {
         let config = RedisConfig::default();
         let _queue = RedisMessageQueue::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        ()
     }
 
     #[tokio::test]

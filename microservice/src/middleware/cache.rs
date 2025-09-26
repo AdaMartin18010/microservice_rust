@@ -8,6 +8,13 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+#[allow(dead_code)]
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
+#[allow(dead_code)]
+type Shared<T> = Arc<RwLock<T>>;
+
 use tracing::{debug, info, instrument, warn};
 
 /// 缓存配置
@@ -124,15 +131,15 @@ impl CacheItem {
 /// 内存缓存
 #[derive(Debug)]
 pub struct MemoryCache {
-    items: Arc<RwLock<HashMap<String, CacheItem>>>,
+    items: SharedMap<String, CacheItem>,
     config: CacheConfig,
-    stats: Arc<RwLock<CacheStats>>,
+    stats: Shared<CacheStats>,
 }
 
 impl MemoryCache {
     pub fn new(config: CacheConfig) -> Self {
         Self {
-            items: Arc::new(RwLock::new(HashMap::new())),
+            items: SharedMap::default(),
             config,
             stats: Arc::new(RwLock::new(CacheStats::new())),
         }

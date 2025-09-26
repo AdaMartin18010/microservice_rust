@@ -146,7 +146,7 @@ async fn demo_nats() -> std::result::Result<(), Box<dyn std::error::Error>> {
     nats_manager.connect_all().await?;
 
     // 发布消息
-    let payloads = vec![
+    let payloads = [
         b"Hello NATS 1".to_vec(),
         b"Hello NATS 2".to_vec(),
         b"Hello NATS 3".to_vec(),

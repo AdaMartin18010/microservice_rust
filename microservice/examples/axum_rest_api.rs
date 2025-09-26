@@ -8,7 +8,6 @@ use microservice::{
     //MiddlewareBuilder, CorsConfig, RateLimitConfig,
 };
 use tracing::info;
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

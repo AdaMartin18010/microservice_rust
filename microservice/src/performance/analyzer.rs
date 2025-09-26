@@ -249,7 +249,7 @@ impl PerformanceAnalyzer {
             score += consistency_ratio * 10.0;
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// 计算时间性能分数
@@ -263,7 +263,7 @@ impl PerformanceAnalyzer {
             score -= penalty.min(60.0);
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// 计算内存性能分数
@@ -277,7 +277,7 @@ impl PerformanceAnalyzer {
             score -= penalty.min(50.0);
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// 计算事件分布分数
@@ -298,7 +298,7 @@ impl PerformanceAnalyzer {
             score += (category_diversity - 5.0) * 2.0;
         }
 
-        score.max(0.0).min(100.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// 计算性能指标

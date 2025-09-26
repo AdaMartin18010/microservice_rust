@@ -530,6 +530,12 @@ impl AutoScalingDemoManager {
     }
 }
 
+impl Default for AutoScalingDemoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 主函数演示自动扩缩容
 #[tokio::main]
 async fn main() -> Result<()> {

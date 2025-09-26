@@ -25,15 +25,19 @@ pub enum MetricValue {
     Timer(Vec<Duration>),
 }
 
+// 统一的共享容器别名，提升可读性
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
+
 /// 指标收集器（增强版本）
 pub struct MetricsCollector {
-    counters: Arc<RwLock<HashMap<String, u64>>>,
-    gauges: Arc<RwLock<HashMap<String, f64>>>,
-    histograms: Arc<RwLock<HashMap<String, Vec<f64>>>>,
-    timers: Arc<RwLock<HashMap<String, Vec<Duration>>>>,
-    labels: Arc<RwLock<HashMap<String, HashMap<String, String>>>>,
-    labeled_metrics: Arc<RwLock<Vec<LabeledMetric>>>,
-    metric_buffer: Arc<RwLock<Vec<LabeledMetric>>>,
+    counters: SharedMap<String, u64>,
+    gauges: SharedMap<String, f64>,
+    histograms: SharedMap<String, Vec<f64>>,
+    timers: SharedMap<String, Vec<Duration>>,
+    labels: SharedMap<String, HashMap<String, String>>,
+    labeled_metrics: SharedVec<LabeledMetric>,
+    metric_buffer: SharedVec<LabeledMetric>,
     buffer_size: usize,
     flush_interval: Duration,
     exporter: Option<Arc<dyn MetricExporter + Send + Sync>>,
@@ -278,13 +282,13 @@ impl Default for MetricsCollector {
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
-            counters: Arc::new(RwLock::new(HashMap::new())),
-            gauges: Arc::new(RwLock::new(HashMap::new())),
-            histograms: Arc::new(RwLock::new(HashMap::new())),
-            timers: Arc::new(RwLock::new(HashMap::new())),
-            labels: Arc::new(RwLock::new(HashMap::new())),
-            labeled_metrics: Arc::new(RwLock::new(Vec::new())),
-            metric_buffer: Arc::new(RwLock::new(Vec::new())),
+            counters: SharedMap::default(),
+            gauges: SharedMap::default(),
+            histograms: SharedMap::default(),
+            timers: SharedMap::default(),
+            labels: SharedMap::default(),
+            labeled_metrics: SharedVec::default(),
+            metric_buffer: SharedVec::default(),
             buffer_size: 1000,
             flush_interval: Duration::from_secs(30),
             exporter: None,
@@ -773,20 +777,20 @@ pub struct TimerStats {
     pub median: Duration,
 }
 
-impl HistogramStats {
-    /// 获取统计信息的字符串表示
-    pub fn to_string(&self) -> String {
-        format!(
+impl std::fmt::Display for HistogramStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "count={}, sum={:.2}, mean={:.2}, min={:.2}, max={:.2}, median={:.2}, p95={:.2}, p99={:.2}",
             self.count, self.sum, self.mean, self.min, self.max, self.median, self.p95, self.p99
         )
     }
 }
 
-impl TimerStats {
-    /// 获取统计信息的字符串表示
-    pub fn to_string(&self) -> String {
-        format!(
+impl std::fmt::Display for TimerStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
             "count={}, total={:?}, mean={:?}, min={:?}, max={:?}, median={:?}",
             self.count, self.total, self.mean, self.min, self.max, self.median
         )

@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+
 use tracing::info;
 
 use crate::{
@@ -49,7 +52,7 @@ pub struct UpdateUserRequest {
 /// 应用状态
 #[derive(Clone)]
 pub struct AppState {
-    pub users: Arc<RwLock<HashMap<String, User>>>,
+    pub users: SharedMap<String, User>,
     pub config: Config,
 }
 
@@ -67,7 +70,7 @@ impl ActixMicroservice {
         info!("启动Actix-Web微服务: {}", addr);
 
         let state = AppState {
-            users: Arc::new(RwLock::new(HashMap::new())),
+            users: SharedMap::default(),
             config: config.clone(),
         };
 
@@ -243,13 +246,13 @@ mod tests {
     async fn test_health_check() {
         let _req = test::TestRequest::get().uri("/health").to_request();
         // 这里需要实际的测试实现
-        assert!(true);
+        let _ = _req;
     }
 
     #[tokio::test]
     async fn test_actix_microservice_creation() {
         let config = Config::default();
         let _microservice = ActixMicroservice::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _microservice;
     }
 }

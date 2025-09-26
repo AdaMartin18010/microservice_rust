@@ -199,7 +199,7 @@ pub enum SecurityError {
     #[error("速率限制错误: {0}")]
     RateLimitError(#[from] RateLimitError),
     #[error("输入验证错误: {0}")]
-    InputValidationError(#[from] InputValidationError),
+    InputValidationError(#[from] Box<InputValidationError>),
     #[error("OAuth2错误: {0}")]
     OAuth2Error(#[from] OAuth2Error),
 }

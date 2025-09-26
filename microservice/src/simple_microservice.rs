@@ -9,6 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+#[allow(dead_code)]
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
+
 
 /// 简化的服务接口
 #[async_trait]
@@ -43,7 +48,7 @@ pub struct SimpleHealth {
 /// 简化的用户服务
 #[allow(dead_code)]
 pub struct SimpleUserService {
-    users: Arc<RwLock<HashMap<String, SimpleUser>>>,
+    users: SharedMap<String, SimpleUser>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,7 +68,7 @@ impl Default for SimpleUserService {
 impl SimpleUserService {
     pub fn new() -> Self {
         Self {
-            users: Arc::new(RwLock::new(HashMap::new())),
+            users: SharedMap::default(),
         }
     }
 }
@@ -92,7 +97,7 @@ impl SimpleService for SimpleUserService {
 
 /// 简化的服务注册中心
 pub struct SimpleServiceRegistry {
-    services: Arc<RwLock<HashMap<String, Box<dyn SimpleService>>>>,
+    services: SharedMap<String, Box<dyn SimpleService>>,
 }
 
 impl Default for SimpleServiceRegistry {
@@ -104,7 +109,7 @@ impl Default for SimpleServiceRegistry {
 impl SimpleServiceRegistry {
     pub fn new() -> Self {
         Self {
-            services: Arc::new(RwLock::new(HashMap::new())),
+            services: SharedMap::default(),
         }
     }
 
@@ -127,7 +132,7 @@ impl SimpleServiceRegistry {
 
 /// 简化的性能监控
 pub struct SimplePerformanceMonitor {
-    metrics: Arc<RwLock<HashMap<String, f64>>>,
+    metrics: SharedMap<String, f64>,
 }
 
 impl Default for SimplePerformanceMonitor {
@@ -139,7 +144,7 @@ impl Default for SimplePerformanceMonitor {
 impl SimplePerformanceMonitor {
     pub fn new() -> Self {
         Self {
-            metrics: Arc::new(RwLock::new(HashMap::new())),
+            metrics: SharedMap::default(),
         }
     }
 

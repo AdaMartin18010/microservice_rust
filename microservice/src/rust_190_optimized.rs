@@ -14,9 +14,9 @@ pub trait OptimizedService {
     fn process_request(
         &self,
         request: ServiceRequest,
-    ) -> Pin<Box<dyn Future<Output = Result<ServiceResponse, ServiceError>> + Send + '_>>;
-    fn get_metrics(&self) -> Pin<Box<dyn Future<Output = ServiceMetrics> + Send + '_>>;
-    fn health_check(&self) -> Pin<Box<dyn Future<Output = HealthStatus> + Send + '_>>;
+    ) -> impl Future<Output = Result<ServiceResponse, ServiceError>> + Send + '_;
+    fn get_metrics(&self) -> impl Future<Output = ServiceMetrics> + Send + '_;
+    fn health_check(&self) -> impl Future<Output = HealthStatus> + Send + '_;
 }
 
 /// 服务请求结构
@@ -297,32 +297,32 @@ impl OptimizedService for OptimizedMicroService {
     fn process_request(
         &self,
         request: ServiceRequest,
-    ) -> Pin<Box<dyn Future<Output = Result<ServiceResponse, ServiceError>> + Send + '_>> {
-        Box::pin(async move {
-            self.process_request_optimized(request, |req| async move {
-                // 模拟处理逻辑
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                Ok(format!("Processed: {}", req.id).into_bytes())
-            })
-            .await
-        })
+    ) -> impl Future<Output = Result<ServiceResponse, ServiceError>> + Send + '_ {
+        async move {
+            self
+                .process_request_optimized(request, |req| async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    Ok(format!("Processed: {}", req.id).into_bytes())
+                })
+                .await
+        }
     }
 
-    fn get_metrics(&self) -> Pin<Box<dyn Future<Output = ServiceMetrics> + Send + '_>> {
+    fn get_metrics(&self) -> impl Future<Output = ServiceMetrics> + Send + '_ {
         let metrics = self.metrics.clone();
-        Box::pin(async move { metrics.read().await.clone() })
+        async move { metrics.read().await.clone() }
     }
 
-    fn health_check(&self) -> Pin<Box<dyn Future<Output = HealthStatus> + Send + '_>> {
+    fn health_check(&self) -> impl Future<Output = HealthStatus> + Send + '_ {
         let breaker = self.circuit_breaker.clone();
-        Box::pin(async move {
+        async move {
             let breaker = breaker.read().await;
             match breaker.state {
                 CircuitState::Closed => HealthStatus::Healthy,
                 CircuitState::HalfOpen => HealthStatus::Degraded,
                 CircuitState::Open => HealthStatus::Unhealthy,
             }
-        })
+        }
     }
 }
 

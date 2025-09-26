@@ -15,13 +15,13 @@ pub enum LogLevel {
     Error,
 }
 
-impl ToString for LogLevel {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for LogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LogLevel::Debug => "DEBUG".to_string(),
-            LogLevel::Info => "INFO".to_string(),
-            LogLevel::Warn => "WARN".to_string(),
-            LogLevel::Error => "ERROR".to_string(),
+            LogLevel::Debug => write!(f, "DEBUG"),
+            LogLevel::Info => write!(f, "INFO"),
+            LogLevel::Warn => write!(f, "WARN"),
+            LogLevel::Error => write!(f, "ERROR"),
         }
     }
 }

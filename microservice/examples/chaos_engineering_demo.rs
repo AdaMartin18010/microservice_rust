@@ -418,6 +418,12 @@ impl ChaosEngineeringDemoManager {
     }
 }
 
+impl Default for ChaosEngineeringDemoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 主函数演示混沌工程
 #[tokio::main]
 async fn main() -> Result<()> {

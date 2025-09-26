@@ -543,6 +543,12 @@ impl MultiCloudDemoManager {
     }
 }
 
+impl Default for MultiCloudDemoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 主函数演示多云支持
 #[tokio::main]
 async fn main() -> Result<()> {

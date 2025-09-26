@@ -33,25 +33,13 @@ pub struct CreateProductRequest {
 }
 
 /// 更新产品请求
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct UpdateProductRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub price: Option<f64>,
     pub category: Option<String>,
     pub stock: Option<i32>,
-}
-
-impl Default for UpdateProductRequest {
-    fn default() -> Self {
-        Self {
-            name: None,
-            description: None,
-            price: None,
-            category: None,
-            stock: None,
-        }
-    }
 }
 
 /// 搜索查询

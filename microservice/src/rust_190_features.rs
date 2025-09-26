@@ -14,6 +14,9 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+
 
 /// Rust 1.90 新特性：稳定的异步trait
 /// 使用async-trait宏来确保dyn兼容性
@@ -197,7 +200,7 @@ pub enum ServiceError {
 /// 服务注册中心
 #[allow(dead_code)]
 pub struct ServiceRegistry {
-    services: Arc<RwLock<HashMap<String, ServiceEntry>>>,
+    services: SharedMap<String, ServiceEntry>,
 }
 
 #[allow(dead_code)]
@@ -226,7 +229,7 @@ impl Default for ServiceRegistry {
 impl ServiceRegistry {
     pub fn new() -> Self {
         Self {
-            services: Arc::new(RwLock::new(HashMap::new())),
+            services: SharedMap::default(),
         }
     }
 
@@ -524,7 +527,7 @@ impl RetryPolicy {
 #[allow(dead_code)]
 pub struct ServiceMonitor {
     registry: Arc<ServiceRegistry>,
-    metrics: Arc<RwLock<HashMap<String, ServiceMetrics>>>,
+    metrics: SharedMap<String, ServiceMetrics>,
 }
 
 #[derive(Debug, Clone)]
@@ -541,7 +544,7 @@ impl ServiceMonitor {
     pub fn new(registry: Arc<ServiceRegistry>) -> Self {
         Self {
             registry,
-            metrics: Arc::new(RwLock::new(HashMap::new())),
+            metrics: SharedMap::default(),
         }
     }
 
@@ -620,7 +623,7 @@ impl ServiceFactory {
 
 /// 用户服务实现
 pub struct UserService {
-    users: Arc<RwLock<HashMap<String, User>>>,
+    users: SharedMap<String, User>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -665,9 +668,7 @@ impl UserService {
             },
         );
 
-        Self {
-            users: Arc::new(RwLock::new(users)),
-        }
+        Self { users: Arc::new(RwLock::new(users)) }
     }
 }
 
@@ -743,7 +744,7 @@ impl AsyncService for UserService {
 
 /// 订单服务实现
 pub struct OrderService {
-    orders: Arc<RwLock<HashMap<String, Order>>>,
+    orders: SharedMap<String, Order>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -802,9 +803,7 @@ impl OrderService {
             },
         );
 
-        Self {
-            orders: Arc::new(RwLock::new(orders)),
-        }
+        Self { orders: Arc::new(RwLock::new(orders)) }
     }
 }
 
@@ -880,7 +879,7 @@ impl AsyncService for OrderService {
 
 /// 产品服务实现
 pub struct ProductService {
-    products: Arc<RwLock<HashMap<String, Product>>>,
+    products: SharedMap<String, Product>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -927,9 +926,7 @@ impl ProductService {
             },
         );
 
-        Self {
-            products: Arc::new(RwLock::new(products)),
-        }
+        Self { products: Arc::new(RwLock::new(products)) }
     }
 }
 

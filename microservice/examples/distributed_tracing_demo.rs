@@ -48,18 +48,11 @@ impl DistributedTracingDemo {
         };
 
         // 创建OpenTelemetry管理器
-        let mut otel_manager = OpenTelemetryManager::new(otel_config).map_err(|e| {
-            Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("{}", e),
-            ))
-        })?;
-        otel_manager.init().map_err(|e| {
-            Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("{}", e),
-            ))
-        })?;
+        let mut otel_manager = OpenTelemetryManager::new(otel_config)
+            .map_err(|e| Box::new(std::io::Error::other(format!("{}", e))))?;
+        otel_manager
+            .init()
+            .map_err(|e| Box::new(std::io::Error::other(format!("{}", e))))?;
 
         // 创建分布式追踪配置
         let tracing_config = DistributedTracingConfig {
@@ -279,25 +272,29 @@ impl DistributedTracingDemo {
             let success = rand::random::<bool>();
             if success {
                 let status_code = if rand::random::<bool>() { 200 } else { 201 };
-                self.tracing_middleware.trace_external_service_call(
+                self.tracing_middleware.trace_external_call(
                     span,
-                    service_name,
-                    endpoint,
-                    method,
-                    duration,
-                    Some(status_code),
-                    None,
+                    microservice::middleware::distributed_tracing::ExternalCallInfo {
+                        service_name: service_name.to_string(),
+                        endpoint: endpoint.to_string(),
+                        method: method.to_string(),
+                        duration,
+                        status_code: Some(status_code),
+                        error: None,
+                    },
                 );
             } else {
                 let status_code = if rand::random::<bool>() { 500 } else { 404 };
-                self.tracing_middleware.trace_external_service_call(
+                self.tracing_middleware.trace_external_call(
                     span,
-                    service_name,
-                    endpoint,
-                    method,
-                    duration,
-                    Some(status_code),
-                    Some("Service unavailable"),
+                    microservice::middleware::distributed_tracing::ExternalCallInfo {
+                        service_name: service_name.to_string(),
+                        endpoint: endpoint.to_string(),
+                        method: method.to_string(),
+                        duration,
+                        status_code: Some(status_code),
+                        error: Some("Service unavailable".to_string()),
+                    },
                 );
             }
         }

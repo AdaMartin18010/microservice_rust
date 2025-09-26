@@ -7,6 +7,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use futures::future::join_all;
+use std::time::Duration;
 use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
@@ -41,6 +43,12 @@ pub trait AdvancedAsyncService {
         &self,
         config: ServiceConfig,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + '_>>;
+}
+
+/// 基于原生 async fn 的高级服务接口（仅用于不需要 dyn 的场景）
+pub trait NativeAdvancedService {
+    fn warmup_native(&self) -> impl std::future::Future<Output = Result<()>> + Send;
+    fn get_metrics_native(&self) -> impl std::future::Future<Output = Result<ServiceMetrics>> + Send;
 }
 
 /// 服务配置
@@ -127,6 +135,42 @@ impl AdvancedUserService {
     }
 }
 
+impl Default for AdvancedUserService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NativeAdvancedService for AdvancedUserService {
+    #[allow(clippy::manual_async_fn)]
+    fn warmup_native(&self) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
+            for i in 1..=5u32 {
+                let request = ServiceRequest {
+                    id: i.to_string(),
+                    data: "warmup".to_string(),
+                    metadata: HashMap::new(),
+                    timestamp: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                    priority: Priority::Low,
+                };
+                let _ = self.process_request(request).await?;
+            }
+            Ok(())
+        }
+    }
+
+    #[allow(clippy::manual_async_fn)]
+    fn get_metrics_native(&self) -> impl std::future::Future<Output = Result<ServiceMetrics>> + Send {
+        async move {
+            let metrics = self.metrics.read().await;
+            Ok(metrics.clone())
+        }
+    }
+}
+
 #[async_trait]
 impl AsyncService for AdvancedUserService {
     async fn process_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
@@ -142,7 +186,7 @@ impl AsyncService for AdvancedUserService {
 
         let processing_time = start_time.elapsed().as_millis() as u64;
 
-        let result = match user {
+        match user {
             Some(user) => {
                 self.update_metrics(true, processing_time).await;
                 Ok(ServiceResponse {
@@ -163,9 +207,7 @@ impl AsyncService for AdvancedUserService {
                     metadata: HashMap::new(),
                 })
             }
-        };
-
-        result
+        }
     }
 
     async fn health_check(&self) -> Result<HealthStatus> {
@@ -543,6 +585,8 @@ async fn main() -> Result<()> {
     // 预热服务
     println!("\n🔥 预热服务...");
     let _ = user_service.warmup().await;
+    // 追加：使用原生 async trait 方法
+    let _ = user_service.warmup_native().await;
 
     // 演示单个服务调用
     println!("\n📡 演示单个服务调用:");
@@ -652,6 +696,9 @@ async fn main() -> Result<()> {
     {
         println!("服务指标: {:?}", metrics);
     }
+    // 追加：原生 async trait 获取指标
+    let metrics_native = user_service.get_metrics_native().await?;
+    println!("原生 async 指标: {:?}", metrics_native);
 
     // 演示健康检查
     println!("\n🏥 演示健康检查:");
@@ -683,6 +730,25 @@ async fn main() -> Result<()> {
     println!("- 服务监控和指标收集");
     println!("- 批量处理和并发优化");
     println!("- 配置管理和健康检查");
+
+    // 追加：async 闭包与 -> impl Future 演示
+    // async 闭包：在迭代器中并发计算平方
+    let tasks = (1u32..=5)
+        .map(|i| async move { i * i })
+        .collect::<Vec<_>>();
+    let squares = join_all(tasks).await;
+    println!("async 闭包并发平方: {:?}", squares);
+
+    // -> impl Future：返回未来值的简洁函数
+    #[allow(clippy::manual_async_fn)]
+    fn delayed_value(x: u32) -> impl std::future::Future<Output = u32> {
+        async move {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            x
+        }
+    }
+    let v = delayed_value(42).await;
+    println!("impl Future 返回值: {}", v);
 
     Ok(())
 }

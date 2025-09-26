@@ -7,6 +7,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{debug, error, info, warn};
+// 统一共享容器别名，提升可读性
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
 
 // 使用前向声明避免循环依赖
 // 这些类型将在运行时通过参数传递
@@ -29,12 +32,12 @@ pub enum HealthStatus {
     Unhealthy,
 }
 
-impl ToString for HealthStatus {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for HealthStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            HealthStatus::Healthy => "healthy".to_string(),
-            HealthStatus::Degraded => "degraded".to_string(),
-            HealthStatus::Unhealthy => "unhealthy".to_string(),
+            HealthStatus::Healthy => write!(f, "healthy"),
+            HealthStatus::Degraded => write!(f, "degraded"),
+            HealthStatus::Unhealthy => write!(f, "unhealthy"),
         }
     }
 }
@@ -237,8 +240,8 @@ impl HealthChecker for SystemResourceHealthChecker {
 /// 性能监控器
 #[derive(Debug)]
 pub struct PerformanceMonitor {
-    performance_data: Arc<RwLock<HashMap<String, PerformanceData>>>,
-    alert_thresholds: Arc<RwLock<HashMap<String, f64>>>,
+    performance_data: SharedMap<String, PerformanceData>,
+    alert_thresholds: SharedMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -263,8 +266,8 @@ impl Default for PerformanceMonitor {
 impl PerformanceMonitor {
     pub fn new() -> Self {
         Self {
-            performance_data: Arc::new(RwLock::new(HashMap::new())),
-            alert_thresholds: Arc::new(RwLock::new(HashMap::new())),
+            performance_data: SharedMap::default(),
+            alert_thresholds: SharedMap::default(),
         }
     }
 
@@ -413,9 +416,9 @@ pub struct PerformanceSummary {
 /// 错误追踪器
 #[derive(Debug)]
 pub struct ErrorTracker {
-    errors: Arc<RwLock<Vec<ErrorRecord>>>,
-    error_patterns: Arc<RwLock<HashMap<String, u64>>>,
-    alert_thresholds: Arc<RwLock<HashMap<String, u64>>>,
+    errors: SharedVec<ErrorRecord>,
+    error_patterns: SharedMap<String, u64>,
+    alert_thresholds: SharedMap<String, u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -438,13 +441,13 @@ pub enum ErrorSeverity {
     Critical,
 }
 
-impl ToString for ErrorSeverity {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for ErrorSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrorSeverity::Low => "low".to_string(),
-            ErrorSeverity::Medium => "medium".to_string(),
-            ErrorSeverity::High => "high".to_string(),
-            ErrorSeverity::Critical => "critical".to_string(),
+            ErrorSeverity::Low => write!(f, "low"),
+            ErrorSeverity::Medium => write!(f, "medium"),
+            ErrorSeverity::High => write!(f, "high"),
+            ErrorSeverity::Critical => write!(f, "critical"),
         }
     }
 }
@@ -458,9 +461,9 @@ impl Default for ErrorTracker {
 impl ErrorTracker {
     pub fn new() -> Self {
         Self {
-            errors: Arc::new(RwLock::new(Vec::new())),
-            error_patterns: Arc::new(RwLock::new(HashMap::new())),
-            alert_thresholds: Arc::new(RwLock::new(HashMap::new())),
+            errors: SharedVec::default(),
+            error_patterns: SharedMap::default(),
+            alert_thresholds: SharedMap::default(),
         }
     }
 

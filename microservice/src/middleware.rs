@@ -179,7 +179,7 @@ mod tests {
             .compression();
 
         // 这里应该测试中间件构建
-        assert!(true);
+        // no-op
     }
 
     #[test]

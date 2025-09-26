@@ -60,6 +60,17 @@ pub struct DistributedTracingMiddleware {
     pub otel_manager: Option<Arc<OpenTelemetryManager>>,
 }
 
+/// 外部服务调用信息（用于减少形参数量）
+#[derive(Debug, Clone)]
+pub struct ExternalCallInfo {
+    pub service_name: String,
+    pub endpoint: String,
+    pub method: String,
+    pub duration: Duration,
+    pub status_code: Option<u16>,
+    pub error: Option<String>,
+}
+
 impl Default for DistributedTracingMiddleware {
     fn default() -> Self {
         Self::new(DistributedTracingConfig::default())
@@ -343,18 +354,9 @@ impl DistributedTracingMiddleware {
         }
     }
 
-    /// 记录外部服务调用追踪
+    /// 记录外部服务调用追踪（聚合参数版本）
     #[instrument(skip(self, span))]
-    pub fn trace_external_service_call(
-        &self,
-        span: Option<Span>,
-        service_name: &str,
-        endpoint: &str,
-        method: &str,
-        duration: Duration,
-        status_code: Option<u16>,
-        error: Option<&str>,
-    ) {
+    pub fn trace_external_call(&self, span: Option<Span>, info: ExternalCallInfo) {
         if !self.config.enabled {
             return;
         }
@@ -363,27 +365,27 @@ impl DistributedTracingMiddleware {
             // 添加外部服务相关属性
             span.add_attribute(
                 "external.service.name".to_string(),
-                service_name.to_string(),
+                info.service_name,
             );
             span.add_attribute(
                 "external.service.endpoint".to_string(),
-                endpoint.to_string(),
+                info.endpoint,
             );
-            span.add_attribute("external.service.method".to_string(), method.to_string());
+            span.add_attribute("external.service.method".to_string(), info.method);
             span.add_attribute(
                 "external.service.duration_ms".to_string(),
-                duration.as_millis().to_string(),
+                info.duration.as_millis().to_string(),
             );
 
-            if let Some(code) = status_code {
+            if let Some(code) = info.status_code {
                 span.add_attribute("external.service.status_code".to_string(), code.to_string());
             }
 
             // 确定跨度状态
-            let status = if let Some(err) = error {
-                span.add_attribute("external.service.error".to_string(), err.to_string());
+            let status = if let Some(err) = &info.error {
+                span.add_attribute("external.service.error".to_string(), err.clone());
                 SpanStatus::Error(format!("外部服务调用失败: {}", err))
-            } else if let Some(code) = status_code {
+            } else if let Some(code) = info.status_code {
                 if code >= 400 {
                     SpanStatus::Error(format!("外部服务返回错误: {}", code))
                 } else {
@@ -394,7 +396,7 @@ impl DistributedTracingMiddleware {
             };
 
             // 记录调用日志
-            let log_level = if error.is_some() || status_code.is_some_and(|c| c >= 400) {
+            let log_level = if info.error.is_some() || info.status_code.is_some_and(|c| c >= 400) {
                 TracingLogLevel::Warn
             } else {
                 TracingLogLevel::Info

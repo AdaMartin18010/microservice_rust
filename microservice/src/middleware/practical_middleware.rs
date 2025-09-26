@@ -9,6 +9,12 @@ use tokio::sync::RwLock;
 use tracing::{error, info, instrument, warn};
 use uuid::Uuid;
 
+#[allow(dead_code)]
+// 统一共享容器别名（tokio RwLock 版本）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+#[allow(dead_code)]
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
+
 // use crate::error::Result; // 暂时未使用
 
 /// 请求追踪中间件
@@ -119,9 +125,9 @@ impl Default for RateLimitMiddleware {
 /// 限流状态
 #[derive(Debug, Clone)]
 pub struct RateLimitState {
-    pub minute_requests: Arc<RwLock<HashMap<String, Vec<Instant>>>>,
-    pub hour_requests: Arc<RwLock<HashMap<String, Vec<Instant>>>>,
-    pub burst_tokens: Arc<RwLock<HashMap<String, u32>>>,
+    pub minute_requests: SharedMap<String, Vec<Instant>>,
+    pub hour_requests: SharedMap<String, Vec<Instant>>,
+    pub burst_tokens: SharedMap<String, u32>,
 }
 
 impl Default for RateLimitState {
@@ -133,9 +139,9 @@ impl Default for RateLimitState {
 impl RateLimitState {
     pub fn new() -> Self {
         Self {
-            minute_requests: Arc::new(RwLock::new(HashMap::new())),
-            hour_requests: Arc::new(RwLock::new(HashMap::new())),
-            burst_tokens: Arc::new(RwLock::new(HashMap::new())),
+            minute_requests: SharedMap::default(),
+            hour_requests: SharedMap::default(),
+            burst_tokens: SharedMap::default(),
         }
     }
 
@@ -566,8 +572,10 @@ mod tests {
         // 测试健康检查
         let result = manager.process_request("GET", "/health", "client1").await;
         match result {
-            RequestResult::HealthCheck(_) => assert!(true),
-            _ => assert!(false, "Expected HealthCheck result"),
+            RequestResult::HealthCheck(_) => {
+                // no-op
+            },
+            _ => unreachable!("Expected HealthCheck result"),
         }
 
         // 测试正常请求
@@ -583,7 +591,7 @@ mod tests {
                 assert!(!request_id.is_empty());
                 assert_eq!(status_code, 200);
             }
-            _ => assert!(false, "Expected Success result"),
+            _ => unreachable!("Expected Success result"),
         }
     }
 }

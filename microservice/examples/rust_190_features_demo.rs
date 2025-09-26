@@ -342,6 +342,12 @@ impl ServiceManager {
     }
 }
 
+impl Default for ServiceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 使用TAIT的异步函数
 #[allow(dead_code)]
 async fn process_service_result<T>(result: ServiceResult<T>) -> Result<T> {

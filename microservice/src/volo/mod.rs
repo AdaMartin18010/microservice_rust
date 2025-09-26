@@ -7,6 +7,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+
 
 use crate::{
     config::Config,
@@ -21,7 +24,7 @@ pub struct VoloMicroservice {
 /// 用户数据存储
 #[derive(Debug, Clone, Default)]
 pub struct UserStore {
-    users: Arc<RwLock<HashMap<String, User>>>,
+    users: SharedMap<String, User>,
 }
 
 /// 用户模型
@@ -77,7 +80,7 @@ impl UserServiceImpl {
     pub fn new() -> Self {
         Self {
             store: UserStore {
-                users: Arc::new(RwLock::new(HashMap::new())),
+                users: SharedMap::default(),
             },
         }
     }
@@ -418,19 +421,19 @@ mod tests {
     fn test_volo_microservice_creation() {
         let config = Config::default();
         let _microservice = VoloMicroservice::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _microservice;
     }
 
     #[test]
     fn test_user_service_impl() {
         let _service = UserServiceImpl::new();
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _service;
     }
 
     #[test]
     fn test_volo_client() {
         let _client = VoloClient::new("http://localhost:3000".to_string());
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _client;
     }
 
     #[tokio::test]

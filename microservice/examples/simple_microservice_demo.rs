@@ -309,6 +309,12 @@ impl SimpleMicroserviceDemoManager {
     }
 }
 
+impl Default for SimpleMicroserviceDemoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 主函数演示简化微服务
 #[tokio::main]
 async fn main() -> Result<()> {

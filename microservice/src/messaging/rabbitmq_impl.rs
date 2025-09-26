@@ -393,7 +393,7 @@ mod tests {
     async fn test_rabbitmq_message_queue_creation() {
         let config = RabbitMQConfig::default();
         let _queue = RabbitMQMessageQueue::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        ()
     }
 
     #[tokio::test]

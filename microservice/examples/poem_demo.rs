@@ -80,27 +80,22 @@ impl PoemStyleService {
     /// 创建用户
     pub async fn create_user(&self, request: CreateUserRequest) -> Result<ApiResponse<User>> {
         info!("创建用户: {}", request.name);
-
         let mut next_id = self.next_id.write().await;
         let id = *next_id;
         *next_id += 1;
-
         let user = User {
             id,
             name: request.name.clone(),
             email: request.email.clone(),
             created_at: chrono::Utc::now().to_rfc3339(),
         };
-
         self.users.write().await.insert(id, user.clone());
-
         Ok(ApiResponse::success(user))
     }
 
     /// 获取用户
     pub async fn get_user(&self, id: u64) -> Result<ApiResponse<User>> {
         info!("获取用户: {}", id);
-
         let users = self.users.read().await;
         match users.get(&id) {
             Some(user) => Ok(ApiResponse::success(user.clone())),
@@ -111,10 +106,8 @@ impl PoemStyleService {
     /// 获取所有用户
     pub async fn get_users(&self) -> Result<ApiResponse<Vec<User>>> {
         info!("获取所有用户");
-
         let users = self.users.read().await;
         let user_list: Vec<User> = users.values().cloned().collect();
-
         Ok(ApiResponse::success(user_list))
     }
 
@@ -125,7 +118,6 @@ impl PoemStyleService {
         request: UpdateUserRequest,
     ) -> Result<ApiResponse<User>> {
         info!("更新用户: {}", id);
-
         let mut users = self.users.write().await;
         match users.get_mut(&id) {
             Some(user) => {
@@ -144,7 +136,6 @@ impl PoemStyleService {
     /// 删除用户
     pub async fn delete_user(&self, id: u64) -> Result<ApiResponse<String>> {
         info!("删除用户: {}", id);
-
         let mut users = self.users.write().await;
         match users.remove(&id) {
             Some(_) => Ok(ApiResponse::success(format!("用户 {} 已删除", id))),
@@ -155,12 +146,16 @@ impl PoemStyleService {
     /// 获取用户统计
     pub async fn get_stats(&self) -> Result<ApiResponse<HashMap<String, u64>>> {
         info!("获取用户统计");
-
         let users = self.users.read().await;
         let mut stats = HashMap::new();
         stats.insert("total_users".to_string(), users.len() as u64);
-
         Ok(ApiResponse::success(stats))
+    }
+}
+
+impl Default for PoemStyleService {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -185,7 +180,7 @@ impl HttpHandler {
                 Ok(serde_json::to_string_pretty(&response)?)
             }
             path if path.starts_with("/users/") => {
-                let id_str = &path[7..]; // 移除 "/users/"
+                let id_str = &path[7..];
                 if let Ok(id) = id_str.parse::<u64>() {
                     let response = self.service.get_user(id).await?;
                     Ok(serde_json::to_string_pretty(&response)?)
@@ -223,7 +218,7 @@ impl HttpHandler {
     pub async fn handle_put(&self, path: &str, body: &str) -> Result<String> {
         match path {
             path if path.starts_with("/users/") => {
-                let id_str = &path[7..]; // 移除 "/users/"
+                let id_str = &path[7..];
                 if let Ok(id) = id_str.parse::<u64>() {
                     let request: UpdateUserRequest = serde_json::from_str(body)?;
                     let response = self.service.update_user(id, request).await?;
@@ -244,7 +239,7 @@ impl HttpHandler {
     pub async fn handle_delete(&self, path: &str) -> Result<String> {
         match path {
             path if path.starts_with("/users/") => {
-                let id_str = &path[7..]; // 移除 "/users/"
+                let id_str = &path[7..];
                 if let Ok(id) = id_str.parse::<u64>() {
                     let response = self.service.delete_user(id).await?;
                     Ok(serde_json::to_string_pretty(&response)?)
@@ -258,6 +253,12 @@ impl HttpHandler {
                 &ApiResponse::<String>::error("未找到路径".to_string()),
             )?),
         }
+    }
+}
+
+impl Default for HttpHandler {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

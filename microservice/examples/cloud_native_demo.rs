@@ -4,7 +4,6 @@
 //! 包括：Kubernetes集成、服务网格、可观测性、配置管理等
 
 use anyhow::Result;
-use chrono;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -15,7 +14,6 @@ use tracing::{
     //error,
     instrument,
 };
-use uuid;
 
 /// 云原生配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -370,7 +368,7 @@ impl CloudNativeMicroservice {
             name: config.service_name.clone(),
             version: config.version.clone(),
             status: ServiceStatus::Starting,
-            endpoint: format!("http://localhost:8080"),
+            endpoint: "http://localhost:8080".to_string(),
             metadata: HashMap::new(),
             created_at: chrono::Utc::now().to_rfc3339(),
             last_heartbeat: chrono::Utc::now().to_rfc3339(),

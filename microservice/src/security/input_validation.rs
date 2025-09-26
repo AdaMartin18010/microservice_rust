@@ -178,7 +178,7 @@ impl InputValidator {
         }
 
         if result.has_errors() {
-            Err(InputValidationError::ValidationFailed(result))
+            Err(InputValidationError::ValidationFailed(Box::new(result)))
         } else {
             Ok(result)
         }
@@ -676,7 +676,7 @@ pub struct BodyValidationResult {
 #[derive(Error, Debug, Clone)]
 pub enum InputValidationError {
     #[error("验证失败: {0:?}")]
-    ValidationFailed(ValidationResult),
+    ValidationFailed(Box<ValidationResult>),
     #[error("规则违反: {0} - {1}")]
     RuleViolation(String, String),
     #[error("长度超限: {0}")]

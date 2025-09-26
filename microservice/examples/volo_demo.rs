@@ -251,6 +251,12 @@ impl VoloStyleService {
     }
 }
 
+impl Default for VoloStyleService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 简化的中间件处理器
 #[derive(Debug)]
 pub struct MiddlewareHandler {
@@ -320,6 +326,12 @@ impl MiddlewareHandler {
     }
 }
 
+impl Default for MiddlewareHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 简化的客户端
 #[derive(Debug)]
 pub struct VoloClient {
@@ -367,6 +379,12 @@ impl VoloClient {
                 "message": "不支持的操作"
             }))?),
         }
+    }
+}
+
+impl Default for VoloClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

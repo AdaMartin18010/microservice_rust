@@ -16,7 +16,6 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 use tracing::{error, info, warn};
-use tracing_subscriber;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -214,7 +213,7 @@ async fn demonstrate_error_tracking_with_local_logs(
     info!("=== 演示错误追踪与本地日志 ===");
 
     // 记录不同类型的错误
-    let error_scenarios = vec![
+    let error_scenarios = [
         (
             "validation_error",
             "用户邮箱格式无效",

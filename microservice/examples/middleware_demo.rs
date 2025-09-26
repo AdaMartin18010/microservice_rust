@@ -176,7 +176,7 @@ async fn demo_error_handling(middleware_manager: &MiddlewareManager) -> Result<(
     info!("⚠️  演示错误处理");
 
     // 模拟不同类型的错误
-    let errors = vec![
+    let errors = [
         Box::new(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "文件未找到",

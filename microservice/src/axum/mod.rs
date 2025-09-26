@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+
 use tracing::info;
 
 use crate::{
@@ -40,7 +43,7 @@ pub struct User {
 /// 应用状态
 #[derive(Clone)]
 pub struct AppState {
-    pub users: Arc<RwLock<HashMap<String, User>>>,
+    pub users: SharedMap<String, User>,
     pub config: Config,
 }
 
@@ -48,7 +51,7 @@ impl AxumMicroservice {
     /// 创建新的Axum微服务
     pub fn new(config: Config) -> Self {
         let state = AppState {
-            users: Arc::new(RwLock::new(HashMap::new())),
+            users: SharedMap::default(),
             config: config.clone(),
         };
 
@@ -160,7 +163,7 @@ async fn metrics(State(state): State<AppState>) -> String {
 /// 创建带中间件的Axum应用
 pub fn create_app_with_middleware(config: Config) -> Router {
     let state = AppState {
-        users: Arc::new(RwLock::new(HashMap::new())),
+        users: SharedMap::default(),
         config: config.clone(),
     };
 
@@ -192,6 +195,6 @@ mod tests {
     fn test_axum_microservice_creation() {
         let config = Config::default();
         let _microservice = AxumMicroservice::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _microservice;
     }
 }

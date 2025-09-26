@@ -16,6 +16,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+type SharedVec<T> = Arc<RwLock<Vec<T>>>;
+
 
 /// 云提供商类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -94,16 +98,16 @@ pub struct CloudCost {
 /// AWS 集成服务
 pub struct AwsService {
     config: CloudConfig,
-    resources: Arc<RwLock<HashMap<String, CloudResource>>>,
-    costs: Arc<RwLock<Vec<CloudCost>>>,
+    resources: SharedMap<String, CloudResource>,
+    costs: SharedVec<CloudCost>,
 }
 
 impl AwsService {
     pub fn new(config: CloudConfig) -> Self {
         Self {
             config,
-            resources: Arc::new(RwLock::new(HashMap::new())),
-            costs: Arc::new(RwLock::new(Vec::new())),
+            resources: SharedMap::default(),
+            costs: SharedVec::default(),
         }
     }
 
@@ -234,16 +238,16 @@ impl AwsService {
 /// Azure 集成服务
 pub struct AzureService {
     config: CloudConfig,
-    resources: Arc<RwLock<HashMap<String, CloudResource>>>,
-    costs: Arc<RwLock<Vec<CloudCost>>>,
+    resources: SharedMap<String, CloudResource>,
+    costs: SharedVec<CloudCost>,
 }
 
 impl AzureService {
     pub fn new(config: CloudConfig) -> Self {
         Self {
             config,
-            resources: Arc::new(RwLock::new(HashMap::new())),
-            costs: Arc::new(RwLock::new(Vec::new())),
+            resources: SharedMap::default(),
+            costs: SharedVec::default(),
         }
     }
 
@@ -377,16 +381,16 @@ impl AzureService {
 /// GCP 集成服务
 pub struct GcpService {
     config: CloudConfig,
-    resources: Arc<RwLock<HashMap<String, CloudResource>>>,
-    costs: Arc<RwLock<Vec<CloudCost>>>,
+    resources: SharedMap<String, CloudResource>,
+    costs: SharedVec<CloudCost>,
 }
 
 impl GcpService {
     pub fn new(config: CloudConfig) -> Self {
         Self {
             config,
-            resources: Arc::new(RwLock::new(HashMap::new())),
-            costs: Arc::new(RwLock::new(Vec::new())),
+            resources: SharedMap::default(),
+            costs: SharedVec::default(),
         }
     }
 
@@ -520,16 +524,16 @@ impl GcpService {
 /// 阿里云集成服务
 pub struct AlibabaCloudService {
     config: CloudConfig,
-    resources: Arc<RwLock<HashMap<String, CloudResource>>>,
-    costs: Arc<RwLock<Vec<CloudCost>>>,
+    resources: SharedMap<String, CloudResource>,
+    costs: SharedVec<CloudCost>,
 }
 
 impl AlibabaCloudService {
     pub fn new(config: CloudConfig) -> Self {
         Self {
             config,
-            resources: Arc::new(RwLock::new(HashMap::new())),
-            costs: Arc::new(RwLock::new(Vec::new())),
+            resources: SharedMap::default(),
+            costs: SharedVec::default(),
         }
     }
 
@@ -664,8 +668,8 @@ pub struct MultiCloudManager {
     azure_service: Option<Arc<AzureService>>,
     gcp_service: Option<Arc<GcpService>>,
     alibaba_service: Option<Arc<AlibabaCloudService>>,
-    resource_registry: Arc<RwLock<HashMap<String, CloudResource>>>,
-    cost_aggregator: Arc<RwLock<Vec<CloudCost>>>,
+    resource_registry: SharedMap<String, CloudResource>,
+    cost_aggregator: SharedVec<CloudCost>,
 }
 
 impl Default for MultiCloudManager {
@@ -681,8 +685,8 @@ impl MultiCloudManager {
             azure_service: None,
             gcp_service: None,
             alibaba_service: None,
-            resource_registry: Arc::new(RwLock::new(HashMap::new())),
-            cost_aggregator: Arc::new(RwLock::new(Vec::new())),
+            resource_registry: SharedMap::default(),
+            cost_aggregator: SharedVec::default(),
         }
     }
 

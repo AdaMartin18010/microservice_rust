@@ -22,7 +22,15 @@ impl AdvancedPatternsDemoManager {
         let service = AdvancedPatternsServiceFactory::create_service();
         Self { service }
     }
+}
 
+impl Default for AdvancedPatternsDemoManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AdvancedPatternsDemoManager {
     /// 演示 CQRS 模式
     pub async fn demo_cqrs_pattern(&self) -> Result<()> {
         println!("\n🔄 演示 CQRS 模式:");

@@ -26,6 +26,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
+// 统一共享容器别名（tokio RwLock）
+type SharedMap<K, V> = Arc<RwLock<HashMap<K, V>>>;
+
 
 use crate::{
     config::Config,
@@ -117,7 +120,7 @@ pub struct GrpcMicroservice {
 #[derive(Debug, Clone, Default)]
 pub struct UserStore {
     #[allow(dead_code)]
-    users: Arc<RwLock<HashMap<String, User>>>,
+    users: SharedMap<String, User>,
 }
 
 /// 用户模型
@@ -139,7 +142,7 @@ impl UserServiceImpl {
     pub fn new() -> Self {
         Self {
             store: UserStore {
-                users: Arc::new(RwLock::new(HashMap::new())),
+                users: SharedMap::default(),
             },
         }
     }
@@ -434,12 +437,12 @@ mod tests {
     fn test_grpc_microservice_creation() {
         let config = Config::default();
         let _microservice = GrpcMicroservice::new(config);
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _microservice;
     }
 
     #[test]
     fn test_user_service_impl() {
         let _service = UserServiceImpl::new();
-        assert!(true); // 如果能创建成功就说明测试通过
+        let _ = _service;
     }
 }
